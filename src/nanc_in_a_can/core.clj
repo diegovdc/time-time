@@ -114,20 +114,42 @@
 
 
 ;; transposicion temporal usando :elapsed, multiples cps
-(let [vdurs (@user/data :vdurs)
-      sorted-durs (->> vdurs (sort-by (comp - :elapsed last))) ;; from longest to shortest
-      longest (first sorted-durs)
-      cp [2 3]
-      get-elapsed-at-cp (fn [cp voice] (-> voice (nth cp) :elapsed))
-      cps-at-longest (mapv #(get-elapsed-at-cp % longest) cp)
-      add-cp-offset (fn [index voice] 
-                      (let [current-cp (cp (mod index (count cps-at-longest)))
-                            current-elapsed-cp (cps-at-longest (mod index (count cps-at-longest)))
-                            offset (- current-elapsed-cp (get-elapsed-at-cp current-cp voice))]
-                        (map 
-                         (fn [vdur] 
-                           (update-in vdur [:elapsed] #(+ offset %)))
-                         (user/spy :mute :voice voice))))]
-  (user/spy :longest longest)
-  (user/spy :shorter (map-indexed add-cp-offset (rest vdurs)))
-  )
+((user/capture :canon)
+ (let [vdurs (@user/data :vdurs)
+       sorted-durs (->> vdurs (sort-by (comp - :elapsed last))) ;; from longest to shortest
+       longest (first sorted-durs)
+       total-dur (->> (last longest) vals (apply +))
+       cp [2 3]
+       get-elapsed-at-cp (fn [cp voice] (-> voice (nth cp) :elapsed))
+       cps-at-longest (mapv #(get-elapsed-at-cp % longest) cp)
+       add-cp-offset (fn [index voice] 
+                       (let [current-cp (cp (mod index (count cps-at-longest)))
+                             current-elapsed-cp (cps-at-longest (mod index (count cps-at-longest)))
+                             offset (- current-elapsed-cp (get-elapsed-at-cp current-cp voice))]
+                         (mapv 
+                          (fn [vdur] 
+                            (update-in vdur [:elapsed] #(+ offset %)))
+                          (user/spy :mute :voice voice))))
+       add-remainder (fn [voice] (let [remainder (->> (last voice)
+                                                     vals
+                                                     (apply +)
+                                                     (- total-dur))
+                                      last-event {:dur remainder  
+                                                  :elapsed (+ (:dur (last voice)) (:elapsed (last voice))) 
+                                                  :remainder? true}]
+                                  (conj voice last-event)))
+       offseted-voices (map-indexed add-cp-offset (rest vdurs))]
+   (map add-remainder (conj offseted-voices longest))
+   ;; (user/spy :longest longest)
+   ;; (user/spy :shorter (map-indexed add-cp-offset (rest vdurs)))
+   ))
+
+(comment ;; test that all voices have a remainder and their duration is the same
+  (->> @user/data :canon user/spy 
+       (map (comp #(apply + %)
+                  (fn [voice] (filter #(not= true %) voice)) 
+                  vals  
+                  last))
+       (apply =)
+       ))
+
