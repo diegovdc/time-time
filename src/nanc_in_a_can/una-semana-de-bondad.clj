@@ -3,10 +3,81 @@
             [nanc-in-a-can.core :refer [converge]]
             [nanc-in-a-can.sequencing :refer [sequencer]]))
 
-(def nome (metronome 60))
+
+(defn rand-pos [smpl] (rand-int (:n-samples smpl)))
+
+(defn dur->ms [dur bpm] (* dur (/ 60 bpm)))
+
+
+(defn nthw [coll index not-found]
+  (try
+    (let [i (mod index (count coll))]
+      (nth coll i))
+    (catch Throwable _ (user/spy :not-found not-found))))
+
+(declare xos)
+(defn xo-play? [index tempo-index]
+  (let [current-event (nthw xos index false)]
+    (if (boolean? current-event) 
+      current-event
+      ((set current-event) tempo-index))))
+
+(def o1 (audio-bus 2))
+
+
+(defonce main-g (group "get-on-the-bus main"))
+(defonce early-g (group "early birds" :head main-g))
+(defonce later-g (group "latecomers" :after early-g))
+(def x true)
+(def o false)
+
+(comment
+  (defsynth out100 [in* 99 amp 1] (out 0 (* amp (in in*))))
+  (defonce outy (out100  :fx-group later-g)))
+
+(declare rate)
+
+(declare silence)
+(declare play-sample*)
+(defn smpl-playa [vals index nome samples sample-sequence]
+  (let [at-idx (get @sample-sequence index)
+        smpl (or (:smpl at-idx) (nthw samples index silence))
+        start-pos (or (:start-pos at-idx) (rand-pos smpl))
+        ]
+    (when (nil? at-idx)
+      (swap! sample-sequence #(assoc % index {:start-pos start-pos              
+                                              :smpl smpl})))
+
+    (when (xo-play? index (:tempo-index vals))
+      (play-sample* [:tail early-g]
+                    smpl                            
+                    ;; dur + 2 secs for fade-in/out
+                    (+ 0 (dur->ms (:dur vals) 
+                                  (metro-bpm nome)))
+                    :rate (rate vals index)
+                    :out* 0
+                    :start-pos start-pos))))
+
+(defn sample-canon [nome samples canon]
+  (let [sample-sequence (atom {})]
+    (->> canon
+         (map (fn [voice] (sequencer 
+                          nome 
+                          voice
+                          (fn [vals index] 
+                            (#'smpl-playa vals index nome samples sample-sequence))))))))
+
+(defn semi-kill [group]
+  (->> group
+       (map
+        (fn [atm] (stop-player (:next-event @atm))
+          (swap! atm #(assoc % :stop? true))
+          (:next-event @atm)))
+      ))
+
+
 
 (def silence (freesound-sample 459659))
-
 
 (def caminata (load-sample "/Users/user/sc/overtone/nanc-in-a-can/resources/caminata.wav"))
 (def caminata2 (load-sample "/Users/user/sc/overtone/nanc-in-a-can/resources/caminata2.wav"))
@@ -51,124 +122,78 @@
 
 
 
-(defn rand-pos [smpl] (rand-int (:n-samples smpl)))
-
-(defn dur->ms [dur bpm] (* dur (/ 60 bpm)))
 
 
+(defsynth play-sample* [smpl silence dur 0 pan 0 start-pos 0 rate 1 out* 0] 
+  (let [env (envelope [0 1 0] [1 (* 0.1 dur) 1.2] :lin)]
+    (out out* (pan2 (* 0.7
+                                         (sin-osc:kr (+ 100 (rand 30)))
+                                        ;             (sin-osc:kr 0.2)
+                    (env-gen env :action FREE) 
+                    (play-buf:ar 1 smpl
+                                 :rate rate
+                                 :start-pos start-pos 
+                                 :loop (if (= smpl silence) 
+                                         false 
+                                         true))) 
+                 pan))))
 
-(comment (play-sample* whales-1 10)         
-         (stop))
 
+(def m-rand (memoize (fn [_] (rand))))
+(def m-rand2 (memoize rand))
+(def xos [x o x o x o])
 
+(defn rate [vals index] (or  
+                                        ;1
+                                        ;(+ 0.7 (m-rand (:tempo-index vals)))
+                                        ;(inc (* index 0.1))
+           1))
 
 
 (comment
-  (do
-    (def sample-sequence (atom {}))
 
-    (->> @user/data :canon
-         (map (fn [voice] (sequencer 
-                          nome 
-                          voice
-                          (fn [vals index]
-                            (let [at-idx (get @sample-sequence index)
-                                  smpl (or (:smpl at-idx) whales-1)
-                                  start-pos (or (:start-pos at-idx) (rand-pos smpl))]
-                              (when (nil? at-idx)
-                                (swap! sample-sequence #(assoc % index {:start-pos start-pos
-                                                                        :smpl smpl})))
-                              (play-sample* smpl                            
-                                            ;; dur + 2 secs for fade-in/out
-                                            (+ 2 (dur->ms (:dur vals) 
-                                                          (metro-bpm nome)))
-                                            ;:rate (inc (* index 0.2))
-                                            :start-pos start-pos)))))))))
-
-
-
-(defn nthw [coll index not-found]
-  (try
-    (let [i (mod index (count coll))]
-      (nth coll i))
-    (catch Throwable _ (user/spy :not-found not-found))))
-
-(definst play-sample* [smpl silence dur 0 pan 0 start-pos 0 rate 1] 
-  (let [env (envelope [0 1 0] [1 dur 1.2] :lin)]
-    (pan2 (* 0.7
-             ;; (sin-osc:kr (+ 20 (rand 300)))
-             (sin-osc:kr 0.2)
-             (env-gen env :action FREE) 
-             (play-buf:ar 1 smpl
-                          :rate rate
-                          :start-pos start-pos 
-                          :loop (if (= smpl silence) 
-                                  false 
-                                  true))) 
-          pan)))
-
-
-
-
-(defn smpl-playa [vals index samples sample-sequence]
-  (let [at-idx (get @sample-sequence index)
-        smpl (or (:smpl at-idx) (nthw samples index silence))
-        start-pos (or (:start-pos at-idx) (rand-pos smpl))
-        ]
-    ;(user/spy (:name smpl))
-    (when (nil? at-idx)
-      (swap! sample-sequence #(assoc % index {:start-pos start-pos
-                                              :smpl smpl})))
-    (play-sample* smpl                            
-                  ;; dur + 2 secs for fade-in/out
-                  (+ 2 (dur->ms (:dur vals) 
-                                (metro-bpm nome)))
-                  :rate (inc (* index 0.1))
-                  :start-pos start-pos)))
-
-(defn sample-canon [nome samples canon]
-  (let [sample-sequence (atom {})]
-    (->> canon
-         (map (fn [voice] (sequencer 
-                          nome 
-                          voice
-                          (fn [vals index] 
-                            (#'smpl-playa vals index samples sample-sequence))))))))
-(comment
-
-
-  (do (def human-c (sample-canon (metronome 220) 
-                                 (shuffle [caminata
-                                           caminata2
-                                           caminata3
-                                           caminata4
-                                           caminata5
+  (do (def human-c (sample-canon (metronome 60) 
+                                 (shuffle [
+                                        ;caminata
+                                           ;caminata2
+                                           ;; caminata3
+                                           ;; caminata4
+                                           ;; caminata5
                                            caminata6
-                                           engine
-                                           sub-sea-drilling
-                                           restaurant]) 
-                                 (converge {:durs (shuffle (flatten (repeat 20 [1 4 3 5 6 7 2])))
-                                            :tempos (map #(/ % 7) (range 7 15))
-                                            :cps [70 130]})))
+                                           ;; engine
+                                           ;; sub-sea-drilling
+                                           ;restaurant
+                                           ]) 
+                                 (converge {:durs (repeat 100 2)
+                                            :tempos (map #(/ % 7) (range 7 10))
+                                            :cps [70 90]})))
       human-c)
 
-  (do (def nature-c (sample-canon (metronome 120) 
-                                  (shuffle [cicadas
-                                            glacier
-                                            iceberg
-                                            glacier1
-                                            dolphins
-                                            whales])
+  (semi-kill human-c)
+  (stop)
+  
+
+  (do (def nature-c (sample-canon (metronome 160) 
+                                  (shuffle [
+                                            ;cicadas
+                                            ;; glacier
+                                            ;; iceberg
+                                            ;; glacier1
+                                           dolphins
+                                            whales
+                                            ])
                                   (converge {:durs (flatten (repeat 14 [1 4 3 5 6 7 2]))
-                                             :tempos (map #(/ % 7) (range 7 15))
+                                             :tempos (map #(/ % 7) (range 7 19))
                                              :cps [70]})))
       nature-c)
 
+  (semi-kill nature-c)
   (stop)
   
   (do (def human-nature-c (sample-canon (metronome 120) 
                                         human-nature
-                                        (converge {:durs (flatten (repeat 14 [1 4 3 5 6 7 2]))
+                                        ;; 12 87
+                                        (converge {:durs  (flatten (repeat 12 [1 4 3 5 6 7 2]))
                                                    :tempos (map #(/ % 7) (range 7 15))
                                                    :cps [70]})))
       human-nature-c)
@@ -178,8 +203,13 @@
                                (converge {:durs (flatten (repeat 20 [1 4 3 5 6 7 2]))
                                           :tempos (map #(/ % 7) (range 7 15))
                                           :cps [70]})))
-      all-c))  
+      all-c)
+
+  (semi-kill all-c)
+  (stop)
+ )  
+
+
 
 ;(recording-start "~/Desktop/whales-canon.wav")
 ;(recording-stop)
-

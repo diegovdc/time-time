@@ -29,19 +29,20 @@
     (map add-remainder (conj offseted-voices longest))))
 
 (defn converge [{:keys [durs tempos cps] :or {cps [0]}}]
-  (let [vdurs (map (fn [tempo] 
+  (let [vdurs (map-indexed (fn [index tempo] 
                      (reduce (fn [acc dur]
                                (let [new-dur (/ dur tempo)
                                      last-dur (-> acc last :dur (or 0))
                                      last-elapsed (-> acc last :elapsed (or 0))
                                      elapsed (+ last-dur last-elapsed)]
-                                 (conj acc {:dur new-dur :elapsed elapsed}))
+                                 (conj acc {:dur new-dur :elapsed elapsed :tempo tempo :tempo-index index}))
                                ) [] durs)) 
                    tempos)
         ]
     (converge-transposition vdurs cps))
   )
 
+(map-indexed println  [9 8 7 6])
 (comment
   ((user/capture :canon)
    (let [vdurs (@user/data :vdurs)

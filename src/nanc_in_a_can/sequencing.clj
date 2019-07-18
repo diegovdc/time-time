@@ -1,57 +1,37 @@
 (ns nanc-in-a-can.sequencing
   (:use [overtone.live]))
-; setup a sound for our metronome to use
-(def kick (freesound-sample 2086))
-(def hh (sample (freesound-path 44937)))
-(def grey-whale (sample (freesound-path 413377)))
-(def whales-1 (freesound-sample 322539))
-(pan2 (sin-osc 400))
-(user/spy hh)
-
-(stop)
-(kick)
- (grey-whale)
-(def nome (metronome 200))
-(definst kick* [] (pan2 (play-buf:ar 1 kick)))
-(definst whales-1* [pan 0] (pan2 (play-buf:ar 1 whales-1) pan))
-(kick*)
-(def w1 (whales-1*))
-(def w2 (whales-1*))
-(ctl w1 :pan 1)
-(ctl w2 :pan -1)
-
-(node-pause* w2)
-(node-start* w2)
-
 
 (defn sequencer- [nome sequence* on-event state]
-  (let [{:keys [start-at index repeat]} @state
+  (let [{:keys [start-at index repeat stop?]} @state
         val* (first sequence*)]
-    (at (nome (+ start-at (:elapsed val*))) 
-        (on-event val* index)
-        (if-not (:remainder? (user/spy :mute val*))
-          (apply-by (nome (+ start-at (:elapsed (second sequence*)))) 
+    (when (not stop?)
+      (at (nome (+ start-at (:elapsed val*))) 
+          (on-event val* index))
+      (if-not (:remainder? (user/spy :mute val*))
+        (let [next-event
+              (apply-at (nome (+ start-at (:elapsed (second sequence*)))) 
+                        sequencer- 
+                        nome
+                        (rest sequence*)
+                        on-event 
+                        [(do (swap! state #(update-in % [:index] inc))
+                             state)])]
+          (swap! state #(assoc % :next-event next-event)))
+        (if (not= 0 repeat)
+          (apply-at (nome (+ start-at (:elapsed val*) (:dur val*))) 
                     sequencer- 
                     nome
-                    (rest sequence*)
-                    on-event 
-                    [(do (swap! state #(update-in % [:index] inc))
-                         state)])
-          (if (not= 0 repeat)
-            (apply-by (nome (+ start-at (:elapsed val*) (:dur val*))) 
-                      sequencer- 
-                      nome
-                      (@state :sequence)
-                      on-event 
-                      [(do (swap! state 
-                                  #(-> %
-                                       (assoc :start-at 
-                                              (+ start-at (:elapsed val*) (:dur val*)))
-                                       (update-in [:index] 
-                                                  (constantly 0))
-                                       (update-in [:repeat] 
-                                                  (fn [r] (if (= r :inf) r (dec r))))))
-                           state)])))))
+                    (@state :sequence)
+                    (@state :on-event) 
+                    [(do (swap! state 
+                                #(-> %
+                                     (assoc :start-at 
+                                            (+ start-at (:elapsed val*) (:dur val*)))
+                                     (update-in [:index] 
+                                                (constantly 0))
+                                     (update-in [:repeat] 
+                                                (fn [r] (if (= r :inf) r (dec r))))))
+                         state)])))))
   state)
   
 (defn sequencer
