@@ -6,7 +6,7 @@
 (def grey-whale (sample (freesound-path 413377)))
 (def whales-1 (freesound-sample 322539))
 (pan2 (sin-osc 400))
-
+(user/spy hh)
 
 (stop)
 (kick)
@@ -29,7 +29,7 @@
         val* (first sequence*)]
     (at (nome (+ start-at (:elapsed val*))) 
         (on-event val* index)
-        (if-not (:remainder? (user/spy val*))
+        (if-not (:remainder? (user/spy :mute val*))
           (apply-by (nome (+ start-at (:elapsed (second sequence*)))) 
                     sequencer- 
                     nome
