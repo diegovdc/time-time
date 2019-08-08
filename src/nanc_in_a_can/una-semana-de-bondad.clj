@@ -41,7 +41,7 @@
 (declare play-sample*)
 (defn smpl-playa [vals index nome samples sample-sequence]
   (let [at-idx (get @sample-sequence index)
-        smpl (or (:smpl at-idx) (nthw samples index silence))
+        smpl (or (:smpl at-idx) (nthw (deref samples) index silence))
         start-pos (or (:start-pos at-idx) (rand-pos smpl))
         ]
     (when (nil? at-idx)
@@ -112,6 +112,7 @@
 (def glacier1 (load-sample "/Users/user/sc/overtone/nanc-in-a-can/resources/376184__drelliott0net__2015-04-09-svinafellsjokull-glacier-top.wav"))
 (def dolphins (load-sample "/Users/user/sc/overtone/nanc-in-a-can/resources/408555__felix-blume__amazonian-dolphins.wav"))
 (def whales (freesound-sample 322539))
+(def birds (freesound-sample 467096))
 
 (def nature [cicadas
              glacier
@@ -125,14 +126,14 @@
 
 
 (defsynth play-sample* [smpl silence dur 0 pan 0 start-pos 0 rate 1 out* 0] 
-  (let [env (envelope [0 1 0] [1 (* 0.1 dur) 1.2] :lin)]
+  (let [env (envelope [0 1 0] [1 dur 3.2] :lin)]
     (out out* (pan2 (* 0.7
-                                         (sin-osc:kr (+ 100 (rand 30)))
-                                        ;             (sin-osc:kr 0.2)
+                                        ; (sin-osc:kr (+ 100 (rand 30)))
+                                      ;              (sin-osc:kr 0.2)
                     (env-gen env :action FREE) 
                     (play-buf:ar 1 smpl
                                  :rate rate
-                                 :start-pos start-pos 
+                                 :start-pos (min 0 (- (rand 100000) start-pos)) 
                                  :loop (if (= smpl silence) 
                                          false 
                                          true))) 
@@ -141,15 +142,15 @@
 
 (def m-rand (memoize (fn [_] (rand))))
 (def m-rand2 (memoize rand))
-(def xos [x o x o x o])
+(def xos [o ])
 
-(defn rate [vals index] (or  
+(defn rate [vals index] (or   
                                         ;1
-                                        ;(+ 0.7 (m-rand (:tempo-index vals)))
+                        (+ (* 0.01 (m-rand2 (:tempo-index vals) )) (m-rand (:tempo-index vals)))
                                         ;(inc (* index 0.1))
            1))
-
-
+(birds)
+(stop)
 (comment
 
   (do (def human-c (sample-canon (metronome 60) 
@@ -172,19 +173,21 @@
   (semi-kill human-c)
   (stop)
   
-
-  (do (def nature-c (sample-canon (metronome 160) 
-                                  (shuffle [
-                                            ;cicadas
-                                            ;; glacier
-                                            ;; iceberg
-                                            ;; glacier1
-                                           dolphins
-                                            whales
-                                            ])
-                                  (converge {:durs (flatten (repeat 14 [1 4 3 5 6 7 2]))
-                                             :tempos (map #(/ % 7) (range 7 19))
-                                             :cps [70]})))
+  (def nat (atom []))
+  (reset! nat (shuffle [
+                       ; ;   cicadas
+                           ;; glacier
+                           ;; iceberg
+                           ;; glacier1
+                           ;; dolphins
+                           birds
+                           ;; whales
+                           ]))
+  (do (def nature-c (sample-canon (metronome 30) 
+                                  nat
+                                  (converge {:durs (flatten (repeat 1420 [1]))
+                                             :tempos (map #(/ % 7) (range 7 39))
+                                             :cps [300 570 890 1000 1200]})))
       nature-c)
 
   (semi-kill nature-c)
@@ -211,5 +214,5 @@
 
 
 
-;(recording-start "~/Desktop/whales-canon.wav")
-;(recording-stop)
+(recording-start "~/Desktop/birds-canon.wav")
+(recording-stop)
