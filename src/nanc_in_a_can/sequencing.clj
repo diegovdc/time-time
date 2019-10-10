@@ -91,3 +91,43 @@
 (comment                                      
   (recording-start "~/Desktop/foo.wav")
   (recording-stop))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;; v2
+
+(do
+  (def ref-voice (atom {:started-at (now)
+                        :playing? true}))
+  (def voice (atom {:playing? true
+                    :ref-voice ref-voice
+                    :next-event {:at 5000}}))
+  (defn sequ [voice]
+    (let [starting (-> @voice :ref-voice deref :started-at)
+          next-at (-> @voice :next-event :at)] 
+      (apply-at (- (+ next-at starting) 100)
+                #(when (-> @voice :ref-voice deref :playing?)
+                   (do
+                     (apply-at (+ next-at starting) println "hola")
+                     (swap! voice 
+                            (fn [v-data] 
+                              (update-in v-data 
+                                         [:next-event :at] 
+                                         (fn [t] (user/spy (+ t 1000))))))
+                     (sequ voice))))))
+
+
+  (sequ voice))
+(swap! ref-voice #(assoc % :playing? false))
