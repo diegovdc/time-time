@@ -4,7 +4,7 @@
 ;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time
 
 
-;; base datamuse
+;; base data
 (def durs [1 2 1])
 (def v1 (atom {:ratio 1}))
 
@@ -127,18 +127,23 @@
   (def durs [1 2 1])
   (def reference-ratio 1)
   (def subordinate-ratio 8/7)
+  (def elapsed-time-at-cp (:elapsed 
+                           (get-event-at reference-ratio 
+                                         durs 
+                                         cp)))
   (def v1' (atom (merge {:ratio reference-ratio}
-                        (find-first-event-using-cp reference-ratio durs cp
-                                                   (:elapsed (get-event-at reference-ratio 
-                                                                           durs 
-                                                                           cp))))))
+                        (find-first-event-using-cp reference-ratio 
+                                                   durs 
+                                                   cp
+                                                   elapsed-time-at-cp))))
 
   (def v2' (atom (merge {:ratio subordinate-ratio}
-                        (find-first-event-using-cp subordinate-ratio durs cp
-                                                   (:elapsed (get-event-at reference-ratio 
-                                                                           durs 
-                                                                           cp))))))
+                        (find-first-event-using-cp subordinate-ratio 
+                                                   durs 
+                                                   cp
+                                                   elapsed-time-at-cp))))
   ;; just print both voices
+  (println "Voices data:")
   (println @v1')
   (println @v2')
 
@@ -147,8 +152,7 @@
                (get-next-n-events durs v 7) ;; generate 7 events
                (filterv (fn [ev] (= 7 (:index ev))) v) ;; get only events with index 7
                (map :elapsed v) ;; get elapsed value
-               )
-            )
+               ))
        flatten
        (user/spy "..........Elapsed at times..........")
        (apply =)  ;; verify that both voices occur at the same time
