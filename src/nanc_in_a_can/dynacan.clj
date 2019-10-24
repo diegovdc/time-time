@@ -4,29 +4,28 @@
 ;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time
 
 
-;; base data
+;; base datamuse
 (def durs [1 2 1])
 (def v1 (atom {:ratio 1}))
 
 ;;;; given a list of durs and a ratio calculate event (elapsed-at) at index i for voice v1
-(do
-  (defn get-event-at [ratio durs index]
-    ;; TODO allow start index to be something other than 0, and add initial elapsed
-    (let [durs-size (count durs)
-          modulo (mod index durs-size)
-          completed-cycles (quot index durs-size)
-          last-durs (user/spy :last-durs (subvec durs 0 modulo)) ;; completed durs in last cycle
-          last-elapsed (apply + last-durs) ;; elapsed in last cycle
-          current-dur (user/spy (nth durs modulo))
-          elapsed-in-completed (if-not (> completed-cycles 0)
-                                 0
-                                 (* completed-cycles 
-                                    (apply + durs)))
-          ]
-      {:current-dur (* ratio current-dur)
-       :elapsed (* ratio (+ elapsed-in-completed last-elapsed))}))
-  (get-event-at 0.5 durs 7))
 
+(defn get-event-at [ratio durs index]
+  ;; TODO allow start index to be something other than 0, and add initial elapsed
+  (let [durs-size (count durs)
+        modulo (mod index durs-size)
+        completed-cycles (quot index durs-size)
+        last-durs  (subvec durs 0 modulo) ;; completed durs in last cycle
+        last-elapsed (apply + last-durs) ;; elapsed in last cycle
+        current-dur  (nth durs modulo)
+        elapsed-in-completed (if-not (> completed-cycles 0)
+                               0
+                               (* completed-cycles 
+                                  (apply + durs)))
+        ]
+    {:current-dur (* ratio current-dur)
+     :elapsed (* ratio (+ elapsed-in-completed last-elapsed))}))
+(user/spy (get-event-at 0.5 durs 1))
 
 ;;;; given a list of durs, a ratio, an event at index cp and a moment in time calculate most inmediate possible event (the one closest to elapsed-at >= 0
 (do
@@ -74,16 +73,6 @@
   (find-first-event-using-cp 8/7 durs 7 9))
 
 
-;;;; given a voice v1' with stateful index, get next event from durs
-
-(def v1' (atom {:index 0
-                :elapsed-at 0
-                :ratio 1}))
-
-(def v2' (atom {:index 2
-                :elapsed-at 15/7
-                :ratio 8/7}))
-
 (defn get-next-event [durs voice]
   {:index (inc (:index @voice))
    :elapsed-at (+ (:elapsed-at @voice) 
@@ -93,37 +82,75 @@
 
 
 ;;;; 
+
+(defn get-next-n-events [durs voice n]
+  (loop [n* n
+         index (:index @voice)
+         res []]
+    (if (= -1 n*)
+      res
+      (recur (dec n*)
+             (inc index)
+             (conj res {:index index
+                        :dur (* (@voice :ratio) 
+                                (nth durs (mod index (count durs))))
+                        :elapsed (+ (get (last res) :dur 0) 
+                                    (get (last res) 
+                                         :elapsed 
+                                         (:elapsed-at @voice)))}))))
+  )
+
+(comment
+  ;;test
+  (user/spy (get-next-n-events [1 1 1 1] 
+                               (atom {:elapsed-at 0 :index 0 :ratio 1}) 
+                               3)))
+
+;;;;;;;;
+;;Test;; 
+;;;;;;;;
+
+;; Demonstrate that the event at `cp` in two different voices occurs at the same time
+;; each voices is a map in an atom with keys: `:ratio` `:elapsed-at` `:index`
+;; `elapsed-at` and `:index` for both voices are calculated with 
+;; `find-first-event-using-cp` and `get-event-at`.
+;; IMPORTANT: Note that `get-event-at` always uses the `reference-ratio`.
+;; This should be the same for all voices in the canon.
+
+;; The function `get-next-n-events` is used as means for the demonstration, 
+;; see comment with example use.
+
+;; To Do: convert into a proper test
+
 (do
-  (defn get-next-n-events [durs voice n]
-    (loop [n* n
-           index (:index @voice)
-           res []]
-      (if (= -1 n*)
-        res
-        (recur (dec n*)
-               (inc index)
-               (conj res {:index index
-                          :dur (* (@voice :ratio) 
-                                  (nth durs (mod index (count durs))))
-                          :elapsed (+ (get (last res) :dur 0) 
-                                      (get (last res) 
-                                           :elapsed 
-                                           (:elapsed-at @voice)))}))))
-    )
-  ;; nota: el indice 7 es el cp
+  (def cp 7)
+  (def durs [1 2 1])
+  (def reference-ratio 1)
+  (def subordinate-ratio 8/7)
+  (def v1' (atom (merge {:ratio reference-ratio}
+                        (find-first-event-using-cp reference-ratio durs cp
+                                                   (:elapsed (get-event-at reference-ratio 
+                                                                           durs 
+                                                                           cp))))))
+
+  (def v2' (atom (merge {:ratio subordinate-ratio}
+                        (find-first-event-using-cp subordinate-ratio durs cp
+                                                   (:elapsed (get-event-at reference-ratio 
+                                                                           durs 
+                                                                           cp))))))
+  ;; just print both voices
+  (println @v1')
+  (println @v2')
+
   (->> [v1' v2']
        (map #(as-> % v 
-               (get-next-n-events durs v 7)
-               (filterv (fn [ev] (= 7 (:index ev))) v)
-               (map :elapsed v)
+               (get-next-n-events durs v 7) ;; generate 7 events
+               (filterv (fn [ev] (= 7 (:index ev))) v) ;; get only events with index 7
+               (map :elapsed v) ;; get elapsed value
                )
             )
        flatten
-       (apply =)) ;; ambas voces tienen el mismo valor de elapsed-at en el punto de convergencia?
+       (user/spy "..........Elapsed at times..........")
+       (apply =)  ;; verify that both voices occur at the same time
+       (user/spy "=======Voices are equal?========="))
   )
-
-
-
-(require '[overtone.music.time :refer :all])
-
-(apply-at (+ 1000 (now)) #(println "hola"))
