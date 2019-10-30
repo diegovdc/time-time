@@ -7,7 +7,6 @@
 ;; base data
 (def durs [1 2 1])
 (def v1 (atom {:ratio 1}))
-
 ;;;; given a list of durs and a ratio calculate event (elapsed-at) at index i for voice v1
 
 (defn get-event-at [ratio durs index]
@@ -78,7 +77,7 @@
    :elapsed-at (+ (:elapsed-at @voice) 
                   (nth durs (mod (:index @voice) (count durs))))})
 
-(swap! v1' #(merge % (get-next-event durs v1')))
+;(swap! v1' #(merge % (get-next-event durs v1')))
 
 
 ;;;; 
@@ -95,10 +94,9 @@
                         :dur (* (@voice :ratio) 
                                 (nth durs (mod index (count durs))))
                         :elapsed (+ (get (last res) :dur 0) 
-                                    (get (last res) 
-                                         :elapsed 
-                                         (:elapsed-at @voice)))}))))
-  )
+                                    (get (last res)
+                                         :elapsed
+                                         (:elapsed-at @voice)))})))))
 
 (comment
   ;;test
@@ -124,7 +122,7 @@
 
 (do
   (def cp 7)
-  (def durs [1 2 1])
+  (def durs [1 1])
   (def reference-ratio 1)
   (def subordinate-ratio 8/7)
   (def elapsed-time-at-cp (:elapsed 
@@ -150,11 +148,55 @@
   (->> [v1' v2']
        (map #(as-> % v 
                (get-next-n-events durs v 7) ;; generate 7 events
-               (filterv (fn [ev] (= 7 (:index ev))) v) ;; get only events with index 7
-               (map :elapsed v) ;; get elapsed value
+               (filterv (fn [ev] (= 7 (:index ev))) v)                (map :elapsed v) ;; get elapsed value
                ))
        flatten
        (user/spy "..........Elapsed at times..........")
        (apply =)  ;; verify that both voices occur at the same time
-       (user/spy "=======Voices are equal?========="))
-  )
+       (user/spy "=======Voices are equal?=========")))
+
+{:ratio 1, :elapsed-at 0, :index 0} ; voice
+
+ (require '[nanc-in-a-can.sequencing-2 :refer [schedule!]]
+          '[overtone.music.time :refer [now apply-at]])
+(do
+  (def now* (+ 1000 (now)))
+  (reset! v1'
+          (merge
+           {:ratio reference-ratio}
+           (find-first-event-using-cp reference-ratio
+                                      durs
+                                      cp
+                                      elapsed-time-at-cp)
+           {:fn #(println "v1" (select-keys % [:index :elapsed-at]))
+            :started-at now*
+            :next-event 0
+            :durs durs
+            :tempo 2000
+            :loop? true
+            :playing? true}))
+
+
+  (reset! v2'
+          (merge
+           {:ratio subordinate-ratio}
+           (find-first-event-using-cp subordinate-ratio
+                                      durs
+                                      cp
+                                      elapsed-time-at-cp)
+           {:fn #(println "v2" (select-keys % [:index :elapsed-at]))
+            :started-at now*
+            :next-event 0
+            :durs durs
+            :tempo 2000
+            :loop? true
+            :playing? true}))
+
+  (println @v1')
+  (println @v2')
+  (schedule! v1')
+  (schedule! v2'))
+
+(swap! v1' #(assoc % :loop? false))
+(swap! v2' #(assoc % :loop? false))
+
