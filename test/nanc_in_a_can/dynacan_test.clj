@@ -31,22 +31,34 @@
                {:current-dur 1/2 :elapsed 5}))))))
 
 
-(defn test-existence-of-cp-with-on-the-same-duration [reference-ratio ratio-2 durs cp]
-  (let [cp-elapsed-at (:elapsed (get-event-at reference-ratio
-                                              durs
-                                              cp))
+(defn test-existence-of-cp-with-on-the-same-duration
+  "Demonstrate that the event at `cp` in two different voices occurs at the same
+  time each voices is a map with keys: `:ratio` `:elapsed-at`,
+  `:index`, `elapsed-at` and `:index` for both voices are calculated with
+  `find-first-event-using-cp` and `get-event-at`.
+
+  IMPORTANT: Note that `get-event-at` always uses the `reference-ratio`. This
+  should be the same for all voices in the canon.
+
+  The function `get-next-events` is used as means for the demonstration,
+  see comment with example use."
+  
+  [reference-ratio ratio-2 durs cp]
+  (let [cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
         main-voice (merge {:ratio reference-ratio}
-                          (find-first-event-using-cp reference-ratio
-                                                     durs
-                                                     cp
-                                                     cp-elapsed-at))
+                          (find-first-event-using-cp
+                           reference-ratio
+                           durs
+                           cp
+                           cp-elapsed-at))
         secondary-voice (merge {:ratio ratio-2}
-                               (find-first-event-using-cp ratio-2
-                                                          durs
-                                                          cp
-                                                          cp-elapsed-at))
-
-
+                               (find-first-event-using-cp
+                                ratio-2
+                                durs
+                                cp
+                                cp-elapsed-at))
+        ;; mv = main-voice
+        ;; sv = secondary-voice
         mv-event (last (get-next-n-events durs main-voice cp))
         mv-elapsed-at-cp (:elapsed mv-event)
         result (loop [sv-event (get-next-event secondary-voice durs)]
@@ -65,7 +77,7 @@
                      (< mv-elapsed-at-cp sv-elapsed)
                      ,,,[false durs mv-event sv-event]
                      :else
-                     (recur (get-next-event sv-event durs)))))]
+                     (recur (get-next-event sv-event durs)))))]    
     (or (first result)
         (do (pprint result)
             false))))

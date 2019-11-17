@@ -142,9 +142,6 @@
 ;;;;;;;;
 
 
-
-
-
 (comment
   (require '[nanc-in-a-can.sequencing-2 :refer [schedule!]]
            '[overtone.music.time :refer [now apply-at]])
@@ -191,19 +188,6 @@
   (swap! v2' #(assoc % :loop? false)))
 
 
-
-
-;; Demonstrate that the event at `cp` in two different voices occurs at the same time
-;; each voices is a map in an atom with keys: `:ratio` `:elapsed-at` `:index`
-;; `elapsed-at` and `:index` for both voices are calculated with
-;; `find-first-event-using-cp` and `get-event-at`.
-;; IMPORTANT: Note that `get-event-at` always uses the `reference-ratio`.
-;; This should be the same for all voices in the canon.
-
-;; The function `get-next-n-events` is used as means for the demonstration,
-;; see comment with example use.
-
-;; To Do: convert into a proper test
 
 
 
