@@ -46,9 +46,10 @@
              :elapsed-at (user/spy :mute :ea max-elapsed dur-acc* (- max-elapsed dur-acc*))
              :completed-all (> next-acc-val max-elapsed) })
         (recur next-acc-val (dec i))))))
-
-(defn find-first-event-using-cp
-  "The first event can be deduced by conceptualizing that the first event may be found by going backwards in time starting from the cp.
+;;* 
+(do
+  (defn find-first-event-using-cp
+    "The first event can be deduced by conceptualizing that the first event may be found by going backwards in time starting from the cp.
   Th cp is at some point of the durs vector (cycle) so we need to start from there and go back to the begining of the vector.
   First comes a partial cycle (pcy-end), which may be from 0 to the nth index of the nth length durs vector.
   Then there may be any number of full cycles. We do not need to add each of the durs from the cycles but rather we add the whole durs block (cyn..cy0, written as cyn->cy0).
@@ -59,43 +60,63 @@
   The difference of cp-elapsed-at with the previous result can not be smaller than 0.
   The value that is returned is the dur index and the elapsed-at of the first event.
   "
-  [ratio durs cp cp-elapsed-at]
-  (let [durs-size (count durs)
-        pcy-end (user/spy :mute :pcy-end ratio (get-partial-cycle-durs 0 ratio durs (mod cp durs-size) cp-elapsed-at))
-        cycle-total (user/spy :mute :cycle-total (* ratio (apply + durs)))
-        cyn->cy0 (user/spy :mute (quot (pcy-end :elapsed-at) cycle-total))
-        pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
-        pcy-start (user/spy :mute :start (get-partial-cycle-durs
-                                          (user/spy :mute :pcy-end-acc pcy-end+cyn->cy0)
-                                          ratio
-                                          durs
-                                          durs-size
-                                          cp-elapsed-at
-                                          ))
-        index (if (pcy-end :completed-all)
-                (pcy-end :index)
-                (pcy-start :index))]
-    {:ratio ratio
-     :elapsed-at (if (pcy-end :completed-all)
-                   (pcy-end :elapsed-at)
-                   (pcy-start :elapsed-at))
-     :index (mod index durs-size)
-     ;; :real-index (cond
-     ;;               ;; if no full cycles will elapse, transpose index to the correct cycle of given by `cp-elapsed-at`
-     ;;               (= 0 cyn->cy0) (-> (quot cp durs-size)
-     ;;                                  (* durs-size)
-     ;;                                  (+ index))
-     ;;               ;; if many full cycles, at which index should it really start (negative index) so that the indexes of both voices coincide at the same `elapsed-at`
-     ;;               (> cyn->cy0 0) (-> cyn->cy0
-     ;;                                  (* durs-size)
-     ;;                                  (+ (:index pcy-end))
-     ;;                                  -
-     ;;                                  (+ cp))
-     ;;               :default index)
-     }))
-  ;; (find-first-event-using-cp 8/7 durs 7 7)
+    [ratio durs cp cp-elapsed-at]
+    (let [durs-size (count durs)
+          pcy-end (user/spy :mute :pcy-end ratio (get-partial-cycle-durs 0 ratio durs (mod cp durs-size) cp-elapsed-at))
+          cycle-total (user/spy :mute :cycle-total (* ratio (apply + durs)))
+          cyn->cy0 (user/spy :mute (quot (pcy-end :elapsed-at) cycle-total))
+          pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
+          pcy-start (user/spy :mute :start (get-partial-cycle-durs
+                                            (user/spy :mute  :pcy-end-acc pcy-end+cyn->cy0)
+                                            ratio
+                                            durs
+                                            durs-size
+                                            cp-elapsed-at
+                                            ))
+          index (if (pcy-end :completed-all)
+                  (pcy-end :index)
+                  (pcy-start :index))
+          elapsed-at (if (pcy-end :completed-all)
+                       (pcy-end :elapsed-at)
+                       (pcy-start :elapsed-at))]
+      {:ratio ratio
+       :elapsed-at elapsed-at
+       :index (mod index durs-size)
+       :cp-at cp-elapsed-at
+       :echoic-distance (- cp-elapsed-at elapsed-at)
+       :echoic-distance-event-qty (+ (-> pcy-end :index inc)
+                                     (* durs-size cyn->cy0)
+                                     (-> pcy-start
+                                         :index
+                                         user/spy
+                                         (->> (- durs-size 1))))
+       ;; :real-index (cond
+       ;;               ;; if no full cycles will elapse, transpose index to the correct cycle of given by `cp-elapsed-at`
+       ;;               (= 0 cyn->cy0) (-> (quot cp durs-size)
+       ;;                                  (* durs-size)
+       ;;                                  (+ index))
+       ;;               ;; if many full cycles, at which index should it really start (negative index) so that the indexes of both voices coincide at the same `elapsed-at`
+       ;;               (> cyn->cy0 0) (-> cyn->cy0
+       ;;                                  (* durs-size)
+       ;;                                  (+ (:index pcy-end))
+       ;;                                  -
+       ;;                                  (+ cp))
+       ;;               :default index)
+       }))
+  (let [durs [1 2 1]]
+    (find-first-event-using-cp 1 durs 3 4)
+    (find-first-event-using-cp 1/2 durs 3 4)
+    (find-first-event-using-cp 1/3 durs 3 4)
+    (find-first-event-using-cp 4/3 durs 3 4)
+    (find-first-event-using-cp 5/7 durs 3 4)
+    ))
 
 
+[(get-next-n-events [1 2 1] {:ratio 1 :elapsed-at 0 :index 0} 3)
+ (get-next-n-events [1 2 1] {:ratio 1/2 :elapsed-at 0 :index 0} 6)
+ (get-next-n-events [1 2 1] {:ratio 1/3 :elapsed-at 0 :index 0} 9)
+ (get-next-n-events [1 2 1] {:ratio 4/3 :elapsed-at 0 :index 1} 2)
+ (get-next-n-events [1 2 1] {:ratio 5/7 :elapsed-at 3/7 :index 2} 4)]
 
 
 
@@ -131,6 +152,8 @@
                                        (get (last res)
                                             :elapsed
                                             (:elapsed-at voice)))}))))))
+
+
 
 (comment
   ;;test
