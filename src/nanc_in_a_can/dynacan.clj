@@ -80,29 +80,16 @@
                        (pcy-end :elapsed-at)
                        (pcy-start :elapsed-at))]
       {:ratio ratio
-       :elapsed-at elapsed-at
+       :elapsed elapsed-at
        :index (mod index durs-size)
+       :cp cp
        :cp-at cp-elapsed-at
        :echoic-distance (- cp-elapsed-at elapsed-at)
        :echoic-distance-event-qty (+ (-> pcy-end :index inc)
                                      (* durs-size cyn->cy0)
                                      (-> pcy-start
                                          :index
-                                         user/spy
-                                         (->> (- durs-size 1))))
-       ;; :real-index (cond
-       ;;               ;; if no full cycles will elapse, transpose index to the correct cycle of given by `cp-elapsed-at`
-       ;;               (= 0 cyn->cy0) (-> (quot cp durs-size)
-       ;;                                  (* durs-size)
-       ;;                                  (+ index))
-       ;;               ;; if many full cycles, at which index should it really start (negative index) so that the indexes of both voices coincide at the same `elapsed-at`
-       ;;               (> cyn->cy0 0) (-> cyn->cy0
-       ;;                                  (* durs-size)
-       ;;                                  (+ (:index pcy-end))
-       ;;                                  -
-       ;;                                  (+ cp))
-       ;;               :default index)
-       }))
+                                         (->> (- durs-size 1))))}))
   (let [durs [1 2 1]]
     (find-first-event-using-cp 1 durs 3 4)
     (find-first-event-using-cp 1/2 durs 3 4)
@@ -112,11 +99,11 @@
     ))
 
 
-[(get-next-n-events [1 2 1] {:ratio 1 :elapsed-at 0 :index 0} 3)
- (get-next-n-events [1 2 1] {:ratio 1/2 :elapsed-at 0 :index 0} 6)
- (get-next-n-events [1 2 1] {:ratio 1/3 :elapsed-at 0 :index 0} 9)
- (get-next-n-events [1 2 1] {:ratio 4/3 :elapsed-at 0 :index 1} 2)
- (get-next-n-events [1 2 1] {:ratio 5/7 :elapsed-at 3/7 :index 2} 4)]
+[(get-next-n-events [1 2 1] {:ratio 1 :elapsed 0 :index 0} 3)
+ (get-next-n-events [1 2 1] {:ratio 1/2 :elapsed 0 :index 0} 6)
+ (get-next-n-events [1 2 1] {:ratio 1/3 :elapsed 0 :index 0} 9)
+ (get-next-n-events [1 2 1] {:ratio 4/3 :elapsed 0 :index 1} 2)
+ (get-next-n-events [1 2 1] {:ratio 5/7 :elapsed 3/7 :index 2} 4)]
 
 
 
@@ -127,7 +114,7 @@
                 :elapsed (+ (get voice :dur 0)
                             (get voice
                                  :elapsed
-                                 (:elapsed-at voice)))}))
+                                 (:elapsed voice)))}))
 
 
 (defn normalize-dur [{:keys [dur ratio]}]
@@ -151,7 +138,7 @@
                            :elapsed (+ (get (last res) :dur 0)
                                        (get (last res)
                                             :elapsed
-                                            (:elapsed-at voice)))}))))))
+                                            (:elapsed voice)))}))))))
 
 
 
