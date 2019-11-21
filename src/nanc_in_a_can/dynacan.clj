@@ -109,7 +109,8 @@
                                  (:elapsed-at voice)))}))
 
 
-
+(defn normalize-dur [{:keys [dur ratio]}]
+  (* dur (/ 1 ratio)))
 
 ;;;;
 
