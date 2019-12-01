@@ -46,7 +46,7 @@
              :elapsed-at (user/spy :mute :ea max-elapsed dur-acc* (- max-elapsed dur-acc*))
              :completed-all (> next-acc-val max-elapsed) })
         (recur next-acc-val (dec i))))))
-;;* 
+;;*
 (do
   (defn find-first-event-using-cp
     "The first event can be deduced by conceptualizing that the first event may be found by going backwards in time starting from the cp.
@@ -99,14 +99,6 @@
     ))
 
 
-[(get-next-n-events [1 2 1] {:ratio 1 :elapsed 0 :index 0} 3)
- (get-next-n-events [1 2 1] {:ratio 1/2 :elapsed 0 :index 0} 6)
- (get-next-n-events [1 2 1] {:ratio 1/3 :elapsed 0 :index 0} 9)
- (get-next-n-events [1 2 1] {:ratio 4/3 :elapsed 0 :index 1} 2)
- (get-next-n-events [1 2 1] {:ratio 5/7 :elapsed 3/7 :index 2} 4)]
-
-
-
 (defn get-next-event [voice durs]
   (merge voice {:index (inc (:index voice))
                 :dur (* (voice :ratio)
@@ -117,8 +109,10 @@
                                  (:elapsed voice)))}))
 
 
+
 (defn normalize-dur [{:keys [dur ratio]}]
   (* dur (/ 1 ratio)))
+
 
 ;;;;
 
@@ -140,6 +134,11 @@
                                             :elapsed
                                             (:elapsed voice)))}))))))
 
+[(get-next-n-events [1 2 1] {:ratio 1 :elapsed 0 :index 0} 3)
+ (get-next-n-events [1 2 1] {:ratio 1/2 :elapsed 0 :index 0} 6)
+ (get-next-n-events [1 2 1] {:ratio 1/3 :elapsed 0 :index 0} 9)
+ (get-next-n-events [1 2 1] {:ratio 4/3 :elapsed 0 :index 1} 2)
+ (get-next-n-events [1 2 1] {:ratio 5/7 :elapsed 3/7 :index 2} 4)]
 
 
 (comment
@@ -228,12 +227,3 @@
                             :cp-elapsed-at ::ratio)))
 
 (stest/instrument `find-first-event-using-cp)
-
-
-
-
-
-
-
-  
-
