@@ -128,3 +128,6 @@
                             :echoic-distance-event-qty)))
            cp-event-elapsed (cp-event :elapsed)]
        (= cp-elapsed-at cp-event-elapsed)))))
+
+
+;;; TODO test for echoic distance
