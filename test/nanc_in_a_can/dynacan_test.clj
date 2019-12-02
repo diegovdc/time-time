@@ -86,11 +86,20 @@
   (cond (= 0 n) 1
         (> 0 n) (* -1 n)
         :else n))
-(defn gen-ratio [] (gen/fmap ->positive>0 (gen/ratio)))
-(defn gen-durs [] (gen/not-empty (gen/vector (gen/fmap ->positive>0 (gen/int)))))
-(defn gen-cp [] (gen/fmap ->positive>0 (gen/int)))
+
+(defn gen-ratio []
+  (gen/fmap ->positive>0 (gen/ratio)))
+
+(defn gen-durs []
+  (gen/not-empty (gen/vector (gen/fmap ->positive>0 (gen/int)))))
+
+(defn gen-cp []
+  (gen/fmap ->positive>0 (gen/int)))
+
 (defspec prop-find-first-event-using-cp 100
-  (testing "That for any two ratios find-first-event-using-cp can find a cp where both voices will coincide on the same duration at the same time (the duration is of course scaled to the ratio)."
+  (testing "That for any two ratios find-first-event-using-cp can find a
+           cp where both voices will coincide on the same duration at the
+           same time (the duration is of course scaled to the ratio)."
     (prop/for-all
      [ratio-1 (gen-ratio)
       ratio-2 (gen-ratio)
@@ -129,5 +138,28 @@
            cp-event-elapsed (cp-event :elapsed)]
        (= cp-elapsed-at cp-event-elapsed)))))
 
+(defspec prop-echoic-distance 100
+  (testing "Echoic distance is correctly calculated,
+           so that if we iterate a voice starting on the first event
+           (as returned by `find-first-event-using-cp`)
+           by the number of events in `:echoic-distance-event-qty`
+           (returned by the same function)
+           then on the cp-event we the `:echoic-distance` will be
+           exactly 0."
+    (prop/for-all
+     [ratio (gen-ratio)
+      durs (gen-durs)
+      cp (gen-cp)]
+     (let [cp-elapsed-at (:elapsed (get-event-at ratio durs cp))
+           first-event (find-first-event-using-cp
+                        ratio
+                        durs
+                        cp
+                        cp-elapsed-at)
 
-;;; TODO test for echoic distance
+           cp-event (last (get-next-n-events
+                           durs
+                           first-event
+                           (first-event
+                            :echoic-distance-event-qty)))]
+       (= 0 (cp-event :echoic-distance))))))

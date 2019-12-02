@@ -147,7 +147,7 @@
                                           (- (-> res
                                                  last
                                                  :echoic-distance)
-                                             dur))})))))))
+                                             (-> res last :dur)))})))))))
 
 
 (comment
