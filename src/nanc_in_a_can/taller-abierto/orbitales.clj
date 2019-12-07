@@ -50,21 +50,24 @@
    bp-freq 1000
    bp-q 1
    out* 0]
-  (let [env (envelope [0 1 0.1 0] [a (* 3 dur) r 1] :lin)]
-    (out out* (pan2 (* 7
-                       ;; (sin-osc:kr (+ 100 (rand 30)))
-                       ;; (sin-osc:kr 0.2)
-                       (env-gen env :action FREE)
-                       (bpf:ar
-                        (play-buf:ar 1 smpl
-                                     :rate rate
-                                     :start-pos (min 0 (- (rand 100000) start-pos))
-                                     :loop (if (= smpl silence)
-                                             false
-                                             true))
-                        bp-freq
-                        bp-q))
-                    pan))))
+  (let [env (envelope [0 0.7 0.1 0] [a (* 3 dur) r 3] :lin)]
+    (out out* (distort
+               (distort
+                (pan2
+                 (* 15 15 ;; BEWARE!!!!!!!!!!!!!!!!!!!!!
+                    (sin-osc:kr (+ 100 (rand 30)))
+                    ;; (sin-osc:kr 0.2)
+                    (env-gen env :action FREE)
+                    (bpf:ar
+                     (play-buf:ar 1 smpl
+                                  :rate rate
+                                  :start-pos (min 0 (- (rand 100000) start-pos))
+                                  :loop (if (= smpl silence)
+                                          false
+                                          true))
+                     bp-freq
+                     bp-q))
+                 pan))))))
 
 (defn smpl-playa [vals index nome samples sample-sequence]
   (let [at-idx (get @sample-sequence index)
@@ -79,24 +82,30 @@
       (play-sample* [:tail early-g]
                     smpl
                     ;; dur + 2 secs for fade-in/out
-                    (user/spy (+ 0 (dur->ms (:dur vals)
+                    (user/spy :dur (+ 2 (dur->ms (:dur vals)
                                             (metro-bpm nome))))
                     :rate (rate vals index)
                     :out* 0
-                    :a (+ 1 (rand 1))
-                    :r (+ 2 (rand 5))
-                    :bp-freq (+ 20 (rand-int 16000))
-                    :bp-q (max 0.01 (rand 0.2))
+                    :a (+ 3 (rand 1))
+                    :r (+ 5 (rand 5))
+                    :bp-freq (+ 20 (rand-int 1600))
+                    :bp-q (max 0.1 (rand 0.5))
                     :start-pos start-pos))))
 
 (defn sample-canon [nome samples canon]
   (let [sample-sequence (atom {})]
     (->> canon
-         (map (fn [voice] (sequencer
-                          nome
-                          voice
-                          (fn [vals index]
-                            (#'smpl-playa vals index nome samples sample-sequence))))))))
+         (map (fn [voice]
+                (sequencer
+                 nome
+                 voice
+                 (fn [vals index]
+                   (#'smpl-playa
+                    vals
+                    index
+                    nome
+                    samples
+                    sample-sequence))))))))
 
 
 
@@ -110,7 +119,9 @@
 
 (def silence (freesound-sample 459659))
 
-(def orbitales (load-sample"/media/diego/Music/music/taller-abierto/instrumentos-1/renders/orbitales.wav"))
+(def orbitales
+  (load-sample
+   "/media/diego/Music/music/taller-abierto/instrumentos-1/renders/orbitales.wav"))
 
 
 
@@ -119,13 +130,11 @@
 (def xos
   (shuffle (concat
             (repeat 1 true)
-            (repeat 200 false))))
+            (repeat 1000 false))))
 
 (defn rate [vals index] (or
-                         ;; 1
-                         (+ 1 (* 0.1 (m-rand2 (:tempo-index vals) ))
-                            (m-rand (:tempo-index vals))
-                            )
+
+                         (user/spy (+ 0.5 (* 0.2 (m-rand2 (:tempo-index vals)))))
                          ;; (inc (* index 0.1))
                          1))
 (comment
@@ -152,6 +161,6 @@
   (stop))
 
 
-
-(recording-start "~/Desktop/orbitales-canon-v1.wav")
+(kill)
+(recording-start "~/Desktop/orbitales-canon-v1.2.wav")
 (recording-stop)
