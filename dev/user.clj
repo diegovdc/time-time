@@ -1,36 +1,38 @@
 (ns user
-  (:require [clojure.pprint]))
+  (:require [clojure.pprint]
+            [overtone.core :as o]))
 
+(def connect o/connect-external-server)
 
-(defn make-spy [printer] 
+(defn make-spy [printer]
   (fn [& args]
     (let [off (some #(= % :mute) args)
-          quiet (some #(= % :quiet) args) 
+          quiet (some #(= % :quiet) args)
           val (last args)]
       (if (or off)
         val ;; returns val when muted and/or not on debug
 
         (let [msgs (butlast args)]
-          ((if quiet identity printer) 
-           (concat 
+          ((if quiet identity printer)
+           (concat
             (->> msgs (mapv (fn [msg]
                               (if (fn? msg)
                                 (msg val)
-                                msg)))) 
+                                msg))))
             [val]))))
       val)))
 
-(defn spy 
+(defn spy
   "Example: (spy :some-symbol some-func return-value) => return-value ;; logs everything to the console"
   [& args]
-  (apply 
+  (apply
    (make-spy #(doseq [x %] (clojure.pprint/pprint x)))
    args))
- 
+
 
 (defn spy->
   "Spy for a thread first macro"
-  [& args] 
+  [& args]
   (apply spy (reverse args)))
 
 
@@ -40,7 +42,7 @@
 
 (def data (atom {}))
 
-(defn capture 
-  [key] 
-  (fn [val] 
+(defn capture
+  [key]
+  (fn [val]
     (swap! data #(assoc % key val))))
