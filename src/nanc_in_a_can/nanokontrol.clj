@@ -1,5 +1,5 @@
 (ns nanc-in-a-can.nanokontrol
-  (:require [overtone.live :refer [on-event remove-event-handler]]))
+  (:require [overtone.core :refer [on-event remove-event-handler]]))
 
 
 (def nanokontrol (atom {:f0 {:val 0 :action user/spy}
@@ -20,7 +20,7 @@
                         :k7 {:val 0 :action user/spy}}))
 
 
-(def fader-channels {0 :f0 
+(def fader-channels {0 :f0
                      1 :f1
                      2 :f2
                      3 :f3
@@ -38,38 +38,38 @@
                     22 :k6
                     23 :k7})
 
-(defn no-action-warning [fader] 
+(defn no-action-warning [fader]
   (fn [_] (println (str  "No action specified for fader: " fader))))
 
 (defn get-action [state-atom event-fader]
-    (get-in @state-atom 
-            [event-fader :action] 
+    (get-in @state-atom
+            [event-fader :action]
             (no-action-warning event-fader)))
 
-(defn setup-fader-listeners 
+(defn setup-fader-listeners
   ([state-atom] (setup-fader-listeners state-atom ::faders))
   ([state-atom listener-ns-keyword]
    (on-event [:midi :pitch-bend]
              (fn [e]
                (when-let [event-fader (fader-channels (:channel e))]
-                 (swap! state-atom 
-                        #(update-in % 
-                                    [event-fader :val] 
+                 (swap! state-atom
+                        #(update-in %
+                                    [event-fader :val]
                                     (constantly (:note e))))
                  ((get-action state-atom event-fader) (:note e))))
              listener-ns-keyword)))
 
-(defn setup-knob-listeners 
+(defn setup-knob-listeners
   ([state-atom] (setup-knob-listeners state-atom ::knobs))
   ([state-atom listener-ns-keyword]
    (on-event [:midi :control-change]
-            (fn [e] 
+            (fn [e]
               (when-let [channel (knob-channels (:note e))]
-                (swap! state-atom 
-                       #(update-in % 
-                                   [channel :val] 
-                                   (fn [val] 
-                                     (if (#{2 63} (:data2 e)) 
+                (swap! state-atom
+                       #(update-in %
+                                   [channel :val]
+                                   (fn [val]
+                                     (if (#{2 63} (:data2 e))
                                        ;; min and max keep within midi range
                                        (min 127 (max 0 (inc val)))
                                        (max 0 (min 127 (dec val)))))))

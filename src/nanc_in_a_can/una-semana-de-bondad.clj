@@ -1,5 +1,5 @@
 (ns nanc-in-a-can.una-semana-de-bondad
-  (:require [overtone.live :refer :all]
+  (:require [overtone.core :refer :all]
             [nanc-in-a-can.core :refer [converge]]
             [nanc-in-a-can.sequencing :refer [sequencer]]))
 

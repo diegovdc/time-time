@@ -33,7 +33,7 @@
                             :next-event next-event
                             :elapsed-at elapsed-at*})
        :schedule? schedule?}))
-  
+
   (defn schedule! [voice]
     (let [{:keys [next-event fn] :as data} @voice
           fn*
@@ -45,7 +45,7 @@
                  (reset! voice voice*)
                  (when schedule? (schedule! voice)))))
           event #(do
-                   
+
                    (apply-at next-event fn*))]
       (apply-at (- next-event (:lag @config)) event)))
 
