@@ -6,7 +6,7 @@
         val* (first sequence*)]
     (at (nome (+ start-at (:elapsed val*)))
         (on-event val* index)
-        (if-not (:remainder? (user/spy val*))
+        (if-not (:remainder? val*)
           (apply-by (nome (+ start-at (:elapsed (second sequence*))))
                     sequencer-
                     nome
