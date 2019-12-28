@@ -118,12 +118,10 @@
 
 (defn rate [vals index] (rand-nth
                          [1
-                          (user/spy
-                           :mute
-                           (+ 0.8
-                              (* 0.2
-                                 (rand-nth [1 -1])
-                                 (m-rand2 (:tempo-index vals)))))]))
+                          (+ 0.8
+                             (* 0.2
+                                (rand-nth [1 -1])
+                                (m-rand2 (:tempo-index vals))))]))
 
 (defn dur [vals nome]
   (* 0.1 (dur->sec (:dur vals) (metro-bpm nome))))
@@ -139,29 +137,26 @@
                 :bp-freq (+ 20 (rand-int 1600))
                 :bp-q (max 0.1 (rand 0.5))
                 :start-pos start-pos))
+(comment
+  (def node-a {:instruments [i/orbitales]
+               :synth #'synth*})
 
-(def node-a {:instruments [i/orbitales]
-             :synth #'synth*})
+  (def node-b {:instruments [i/rebotes]
+               :synth #'synth*})
 
-(def node-b {:instruments [i/rebotes]
-             :synth #'synth*})
+  (def node-c {:instruments [i/a1 i/a2]
+               :synth #'synth*})
 
-(def node-c {:instruments [i/a1 i/a2]
-             :synth #'synth*})
+  (def graph {#'node-a #{#'node-b #'node-c}
+              #'node-b #{#'node-a}
+              #'node-c #{#'node-b}})
 
-(def graph {#'node-a #{#'node-b #'node-c}
-            #'node-b #{#'node-a}
-            #'node-c #{#'node-b}})
+  (def state (atom {:history []
+                    :status :playing
+                    :config {}}))
 
-(def state (atom {:history []
-                  :status :playing
-                  :config {}}))
+  (g/play-next! state graph))
 
-(user/spy (g/play-next! state graph))
-
-
-(do
-  (get-instruments state))
 (comment
   (do (def nature-c
         (sample-canon (metronome 30)

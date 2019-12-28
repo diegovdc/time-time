@@ -1,4 +1,5 @@
-(ns nanc-in-a-can.taller-abierto.internal)
+(ns nanc-in-a-can.taller-abierto.internal
+  (:require [clojure.spec.alpha :as s]))
 
 (defn arg-count [f]
   {:pre [(instance? clojure.lang.AFunction f)]}

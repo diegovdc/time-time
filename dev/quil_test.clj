@@ -70,11 +70,10 @@
         circles (swap! circles* update-circles)]
     (doseq [c circles]
       (draw-circle c))))
-
-(defsketch gen-art-31
-  :title "OO Circles"
-  :setup setup
-  :draw draw
-  :mouse-released mouse-released
-  :size [800 800])
-
+(comment
+  (defsketch gen-art-31
+    :title "OO Circles"
+    :setup setup
+    :draw draw
+    :mouse-released mouse-released
+    :size [800 800]))

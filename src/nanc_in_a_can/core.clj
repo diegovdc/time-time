@@ -20,7 +20,7 @@
                           (mapv
                            (fn [vdur]
                              (update-in vdur [:elapsed] #(+ offset %)))
-                           (user/spy :mute :voice voice))))
+                           voice)))
         add-remainder (fn [voice] (let [remainder (->> (last voice)
                                                        vals
                                                        (apply +)

@@ -33,12 +33,10 @@
 (def m-rand2* (memoize rand))
 (defn rate [vals index] (rand-nth
                          [1
-                          (user/spy
-                           :mute
-                           (+ 1.2
-                              (* 0.2
-                                 (rand-nth [1 -1])
-                                 (m-rand2* (:tempo-index vals)))))]))
+                          (+ 1.2
+                             (* 0.2
+                                (rand-nth [1 -1])
+                                (m-rand2* (:tempo-index vals))))]))
 
 (defn dur [vals nome]
   (* 0.1 (dur->sec (:dur vals) (metro-bpm nome))))

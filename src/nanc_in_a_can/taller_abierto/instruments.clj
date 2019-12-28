@@ -2,6 +2,9 @@
   (:require [overtone.core :refer [load-sample] :as o]
             [clojure.string :as string]))
 
+(try (o/boot-external-server)
+     (catch Exception e (println (.getMessage e))))
+
 (def ^:dynamic *drives* {:linux "/media/diego/Music/"
                          :windows "F:\\"})
 
@@ -41,7 +44,3 @@
 (def a9 (i-milo "9.aiff"))
 (def a10 (i-milo "10.aiff"))
 (def amix (i-milo "mix_1.aiff"))
-
-(comment
-  (require '[overtone.core :refer [sample-player]])
-  (sample-player a1))

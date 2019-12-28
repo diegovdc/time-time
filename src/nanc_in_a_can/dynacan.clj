@@ -32,19 +32,16 @@
 (defn get-partial-cycle-durs
   "start-index must already be in modulo form"
   [dur-acc ratio durs start-index max-elapsed]
-  (user/spy :mute :duracc dur-acc)
   (loop [dur-acc* dur-acc
          i (dec start-index)]
-    (user/spy :mute :durac1 dur-acc*)
     (let [next-dur (* ratio (nth durs i 0))
           next-acc-val (+ dur-acc* next-dur)]
       (if (or (< i 0)
               (> next-acc-val max-elapsed))
-        (do (user/spy :mute :durac dur-acc*)
-            {:index (inc i)
-             :elapsed dur-acc*
-             :elapsed-at (user/spy :mute :ea max-elapsed dur-acc* (- max-elapsed dur-acc*))
-             :completed-all (> next-acc-val max-elapsed) })
+        {:index (inc i)
+         :elapsed dur-acc*
+         :elapsed-at (- max-elapsed dur-acc*)
+         :completed-all (> next-acc-val max-elapsed) }
         (recur next-acc-val (dec i))))))
 ;;*
 (do
@@ -70,22 +67,21 @@
   event."
     [ratio durs cp cp-elapsed-at]
     (let [durs-size (count durs)
-          pcy-end (user/spy :mute :pcy-end ratio (get-partial-cycle-durs
-                                                  0
-                                                  ratio
-                                                  durs
-                                                  (mod cp durs-size)
-                                                  cp-elapsed-at))
-          cycle-total (user/spy :mute :cycle-total (* ratio (apply + durs)))
-          cyn->cy0 (user/spy :mute (quot (pcy-end :elapsed-at) cycle-total))
+          pcy-end (get-partial-cycle-durs
+                   0
+                   ratio
+                   durs
+                   (mod cp durs-size)
+                   cp-elapsed-at)
+          cycle-total (* ratio (apply + durs))
+          cyn->cy0 (quot (pcy-end :elapsed-at) cycle-total)
           pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
-          pcy-start (user/spy :mute :start (get-partial-cycle-durs
-                                            (user/spy :mute  :pcy-end-acc pcy-end+cyn->cy0)
-                                            ratio
-                                            durs
-                                            durs-size
-                                            cp-elapsed-at
-                                            ))
+          pcy-start (get-partial-cycle-durs
+                     pcy-end+cyn->cy0
+                     ratio
+                     durs
+                     durs-size
+                     cp-elapsed-at)
           index (if (pcy-end :completed-all)
                   (pcy-end :index)
                   (pcy-start :index))
@@ -152,10 +148,10 @@
 
 (comment
   ;;test
-  (user/spy (get-next-n-events
-             [1 1 1 2]
-             {:echoic-distance 4 :elapsed 0 :index 0 :ratio 1}
-             3)))
+  (get-next-n-events
+   [1 1 1 2]
+   {:echoic-distance 4 :elapsed 0 :index 0 :ratio 1}
+   3))
 
 
 

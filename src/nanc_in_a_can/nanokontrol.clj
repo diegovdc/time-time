@@ -2,23 +2,23 @@
   (:require [overtone.core :refer [on-event remove-event-handler]]))
 
 
-(def nanokontrol (atom {:f0 {:val 0 :action user/spy}
-                        :k0 {:val 0 :action user/spy}
-                        :f1 {:val 0 :action user/spy}
-                        :k1 {:val 0 :action user/spy}
-                        :f2 {:val 0 :action user/spy}
-                        :k2 {:val 0 :action user/spy}
-                        :f3 {:val 0 :action user/spy}
-                        :k3 {:val 0 :action user/spy}
-                        :f4 {:val 0 :action user/spy}
-                        :k4 {:val 0 :action user/spy}
-                        :f5 {:val 0 :action user/spy}
-                        :k5 {:val 0 :action user/spy}
-                        :f6 {:val 0 :action user/spy}
-                        :k6 {:val 0 :action user/spy}
-                        :f7 {:val 0 :action user/spy}
-                        :k7 {:val 0 :action user/spy}}))
 
+(def nanokontrol (atom {:f0 {:val 0 :action println}
+                        :k0 {:val 0 :action println}
+                        :f1 {:val 0 :action println}
+                        :k1 {:val 0 :action println}
+                        :f2 {:val 0 :action println}
+                        :k2 {:val 0 :action println}
+                        :f3 {:val 0 :action println}
+                        :k3 {:val 0 :action println}
+                        :f4 {:val 0 :action println}
+                        :k4 {:val 0 :action println}
+                        :f5 {:val 0 :action println}
+                        :k5 {:val 0 :action println}
+                        :f6 {:val 0 :action println}
+                        :k6 {:val 0 :action println}
+                        :f7 {:val 0 :action println}
+                        :k7 {:val 0 :action println}}))
 
 (def fader-channels {0 :f0
                      1 :f1
@@ -83,8 +83,6 @@
 
 
 (def set-action (partial set-action* nanokontrol))
-
-;; (set-action nanokontrol :f0 user/spy)
 
 (defn start! []
   (setup-fader-listeners nanokontrol)
