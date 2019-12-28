@@ -4,10 +4,9 @@
 
 (def ^:dynamic *drives* {:linux "/media/diego/Music/"
                          :windows "F:\\"})
-
 (defn load-sample* [path]
-  (let [windows? (string/includes? "Windows"
-                                   (System/getProperty "os.name"))
+  (let [windows? (string/includes? (System/getProperty "os.name")
+                                   "Windows")
         drive (if windows? (*drives* :windows) (*drives* :linux))
         path* (if windows? (string/replace (str drive path) #"/" "\\\\")
                   (str drive path))]
