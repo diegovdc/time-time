@@ -13,3 +13,7 @@ movimiento direccional hacia certos nodos especiales I.e. arbol
 matrial de gotas refinandose como cristales
 
 trabajar herramientas para trabajar sonidos largos y direccionales
+
+materiales marcadamente a distintas velocidades
+
+sacar cuatro canales

@@ -1,20 +1,13 @@
 (ns nanc-in-a-can.taller-abierto.orbitales
   (:require [nanc-in-a-can.core :refer [converge]]
             [nanc-in-a-can.sequencing :refer [sequencer]]
+            [nanc-in-a-can.standard :refer [dur->sec nthw rand-pos]]
             [nanc-in-a-can.taller-abierto.graph.core :as g]
             [nanc-in-a-can.taller-abierto.instruments :as i]
-            [nanc-in-a-can.taller-abierto.standard :refer [dur->ms nthw rand-pos]]
             [overtone.core :refer :all]))
 
-(declare xos)
-(defn xo-play? [index tempo-index]
-  (let [current-event (nthw xos index false)]
-    (if (boolean? current-event)
-      current-event
-      ((set current-event) tempo-index))))
 
 (def o1 (audio-bus 2))
-
 
 (defonce main-g (group "get-on-the-bus main"))
 (defonce early-g (group "early birds" :head main-g))
@@ -63,26 +56,31 @@
 
 (defn get-instruments [state]
   (-> @state :history last var-get :instruments))
+
+(defn get-synth [state]
+  (-> @state :history last var-get :synth))
+
+(defn xo-play? [state index]
+  (let [xos (var-get (@state :xos))
+        len (count xos)]
+    (nth xos (mod index len))))
+
 (declare dur)
 (defn smpl-playa [vals index nome state sample-sequence]
   (let [at-idx (get @sample-sequence index)
         smpl (or (:smpl at-idx) (nthw (get-instruments state) index silence))
-        start-pos (or (:start-pos at-idx) (rand-pos smpl))]
+        start-pos (or (:start-pos at-idx) (rand-pos smpl))
+        synth* (get-synth state)]
     (when (nil? at-idx)
       (swap! sample-sequence #(assoc % index {:start-pos start-pos
                                               :smpl smpl})))
 
-    (when (xo-play? index (:tempo-index vals))
-      (play-sample* [:tail early-g]
-                    smpl
-                    :dur (dur vals nome)
-                    :rate (rate vals index)
-                    :out* 0
-                    :a (+ 0 (rand 2))
-                    :r (+ 0.7 (rand 0.5))
-                    :bp-freq (+ 20 (rand-int 1600))
-                    :bp-q (max 0.1 (rand 0.5))
-                    :start-pos start-pos))))
+    (when (xo-play? state index)
+      (synth* :vals vals
+              :metronome nome
+              :index index
+              :sample smpl
+              :start-pos start-pos))))
 
 (defn sample-canon [nome state canon]
   (let [sample-sequence (atom {})]
@@ -115,8 +113,8 @@
 (def m-rand2 (memoize rand))
 (def xos [x o o x o o x o]
   #_(shuffle (concat
-            (repeat 5 true)
-            (repeat 1 false))))
+              (repeat 5 true)
+              (repeat 1 false))))
 
 (defn rate [vals index] (rand-nth
                          [1
@@ -128,13 +126,28 @@
                                  (m-rand2 (:tempo-index vals)))))]))
 
 (defn dur [vals nome]
-  (* 0.1 (dur->ms (:dur vals) (metro-bpm nome))))
+  (* 0.1 (dur->sec (:dur vals) (metro-bpm nome))))
 
-(def node-a {:instruments [i/orbitales]})
+(defn synth* [& {:keys [vals nome index start-pos smpl]}]
+  (play-sample* [:tail early-g]
+                smpl
+                :dur (dur vals nome)
+                :rate (rate vals index)
+                :out* 0
+                :a (+ 0 (rand 2))
+                :r (+ 0.7 (rand 0.5))
+                :bp-freq (+ 20 (rand-int 1600))
+                :bp-q (max 0.1 (rand 0.5))
+                :start-pos start-pos))
 
-(def node-b {:instruments [i/rebotes]})
+(def node-a {:instruments [i/orbitales]
+             :synth #'synth*})
 
-(def node-c {:instruments [i/a1 i/a2]})
+(def node-b {:instruments [i/rebotes]
+             :synth #'synth*})
+
+(def node-c {:instruments [i/a1 i/a2]
+             :synth #'synth*})
 
 (def graph {#'node-a #{#'node-b #'node-c}
             #'node-b #{#'node-a}
@@ -145,6 +158,7 @@
                   :config {}}))
 
 (user/spy (g/play-next! state graph))
+
 
 (do
   (get-instruments state))
@@ -166,5 +180,4 @@
 (comment
   (recording-start "C:\\Users\\Diego\\Desktop\\orbitales-canon-v2.palecs.wav")
   (recording-stop)
-
   (demo (sin-osc:ar 400)))

@@ -4,10 +4,13 @@
 
 (def ^:dynamic *drives* {:linux "/media/diego/Music/"
                          :windows "F:\\"})
+
 (defn load-sample* [path]
-  (let [windows? (System/getProperty "os.name")
+  (let [windows? (string/includes? "Windows"
+                                   (System/getProperty "os.name"))
         drive (if windows? (*drives* :windows) (*drives* :linux))
-        path* (if windows? (string/replace (str drive path) #"/" "\\\\"))]
+        path* (if windows? (string/replace (str drive path) #"/" "\\\\")
+                  (str drive path))]
     (load-sample path*)))
 
 (def orbitales
@@ -19,9 +22,14 @@
   (load-sample*
    "music/taller-abierto/instrumentos-1/renders/rebotes-a-differentes-escalas-temporales.wav"))
 
-(defn i-milo [name] (load-sample* (str "music/taller-abierto/instrumentos-milo-1/" name)))
+(defn i-milo
+  [name]
+  (load-sample*
+   (str
+    "music/taller-abierto/instrumentos-milo-1/"
+    name)))
 
-
+(def silence (o/freesound-sample 459659))
 (def a1 (i-milo "1.aiff"))
 (def a2 (i-milo "2.aiff"))
 (def a3 (i-milo "3.aiff"))
@@ -33,3 +41,7 @@
 (def a9 (i-milo "9.aiff"))
 (def a10 (i-milo "10.aiff"))
 (def amix (i-milo "mix_1.aiff"))
+
+(comment
+  (require '[overtone.core :refer [sample-player]])
+  (sample-player a1))
