@@ -1,37 +1,34 @@
 (ns nanc-in-a-can.sequencing
-  (:use [overtone.core]))
+  (:use [overtone.core :refer :all]))
 
 (defn sequencer- [nome sequence* on-event state]
   (let [{:keys [start-at index repeat stop?]} @state
         val* (first sequence*)]
-    (when (not stop?)
-      (at (nome (+ start-at (:elapsed val*)))
-          (on-event val* index))
-      (if-not (:remainder? (user/spy :mute val*))
-        (let [next-event
-              (apply-at (nome (+ start-at (:elapsed (second sequence*))))
-                        sequencer-
-                        nome
-                        (rest sequence*)
-                        on-event
-                        [(do (swap! state #(update-in % [:index] inc))
-                             state)])]
-          (swap! state #(assoc % :next-event next-event)))
-        (if (not= 0 repeat)
-          (apply-at (nome (+ start-at (:elapsed val*) (:dur val*)))
+    (at (nome (+ start-at (:elapsed val*)))
+        (on-event val* index)
+        (if-not (:remainder? (user/spy val*))
+          (apply-by (nome (+ start-at (:elapsed (second sequence*))))
                     sequencer-
                     nome
-                    (@state :sequence)
-                    (@state :on-event)
-                    [(do (swap! state
-                                #(-> %
-                                     (assoc :start-at
-                                            (+ start-at (:elapsed val*) (:dur val*)))
-                                     (update-in [:index]
-                                                (constantly 0))
-                                     (update-in [:repeat]
-                                                (fn [r] (if (= r :inf) r (dec r))))))
-                         state)])))))
+                    (rest sequence*)
+                    on-event
+                    [(do (swap! state #(update-in % [:index] inc))
+                         state)])
+          (if (not= 0 repeat)
+            (apply-by (nome (+ start-at (:elapsed val*) (:dur val*)))
+                      sequencer-
+                      nome
+                      (@state :sequence)
+                      on-event
+                      [(do (swap! state
+                                  #(-> %
+                                       (assoc :start-at
+                                              (+ start-at (:elapsed val*) (:dur val*)))
+                                       (update-in [:index]
+                                                  (constantly 0))
+                                       (update-in [:repeat]
+                                                  (fn [r] (if (= r :inf) r (dec r))))))
+                           state)])))))
   state)
 
 (defn sequencer
@@ -65,10 +62,7 @@
                                         ;(swap! quil-test/st #(assoc % :bg (rand 255)))
                                   (hh)
                                   nil)
-                                {:repeat :inf}
-                                ))))
-
-
+                                {:repeat :inf}))))
 
 (comment
   (require '[nanc-in-a-can.core :refer [converge]])
@@ -80,9 +74,9 @@
                     :bpm 120
                     :period 1})
          (map (fn [voice] (sequencer
-                          nome
-                          voice
-                          (fn [vals index]
-                            (kick)
-                            nil)
-                          {:repeat nil}))))))
+                           nome
+                           voice
+                           (fn [vals index]
+                             (kick)
+                             nil)
+                           {:repeat nil}))))))

@@ -22,14 +22,14 @@
                              (update-in vdur [:elapsed] #(+ offset %)))
                            (user/spy :mute :voice voice))))
         add-remainder (fn [voice] (let [remainder (->> (last voice)
-                                                      vals
-                                                      (apply +)
-                                                      (- total-dur))
-                                       last-event {:dur remainder
-                                                   :elapsed (+ (:dur (last voice))
-                                                               (:elapsed (last voice)))
-                                                   :remainder? true}]
-                                   (conj voice last-event)))
+                                                       vals
+                                                       (apply +)
+                                                       (- total-dur))
+                                        last-event {:dur remainder
+                                                    :elapsed (+ (:dur (last voice))
+                                                                (:elapsed (last voice)))
+                                                    :remainder? true}]
+                                    (conj voice last-event)))
         offseted-voices (map-indexed add-cp-offset (rest vdurs))]
     (map add-remainder (conj offseted-voices longest))))
 
@@ -123,8 +123,7 @@
                   (fn [voice] (filter #(not= true %) voice))
                   vals
                   last))
-       (apply =)
-       ))
+       (apply =)))
 
 
 
