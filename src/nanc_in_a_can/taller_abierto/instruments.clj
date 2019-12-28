@@ -2,9 +2,6 @@
   (:require [overtone.core :refer [load-sample] :as o]
             [clojure.string :as string]))
 
-(try (o/boot-external-server)
-     (catch Exception e (println (.getMessage e))))
-
 (def ^:dynamic *drives* {:linux "/media/diego/Music/"
                          :windows "F:\\"})
 
@@ -14,6 +11,8 @@
         drive (if windows? (*drives* :windows) (*drives* :linux))
         path* (if windows? (string/replace (str drive path) #"/" "\\\\")
                   (str drive path))]
+    (when-not (o/server-connected?)
+      (o/boot-external-server))
     (load-sample path*)))
 
 (def orbitales
