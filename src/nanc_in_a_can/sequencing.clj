@@ -35,17 +35,25 @@
   state)
 
 (defn sequencer
-  ([nome sequence on-event] (sequencer- nome sequence on-event (atom {:on-event on-event
-                                                                      :sequence sequence
-                                                                      :start-at (nome)
-                                                                      :index 0})))
-  ([nome sequence on-event {:keys [repeat offset] :or {offset 0} :as opts
-                            }]
-   (sequencer- nome sequence on-event (atom (merge opts
-                                                   {:on-event on-event
-                                                    :sequence sequence
-                                                    :start-at (+ (nome) offset)
-                                                    :index 0})))))
+  ([nome sequence on-event]
+   (sequencer- nome
+               sequence
+               on-event
+               (atom {:on-event on-event
+                      :sequence sequence
+                      :start-at (nome)
+                      :index 0})))
+  ([nome sequence on-event {:keys [repeat offset]
+                            :or {offset 0}
+                            :as opts}]
+   (sequencer- nome
+               sequence
+               on-event
+               (atom (merge opts
+                            {:on-event on-event
+                             :sequence sequence
+                             :start-at (+ (nome) offset)
+                             :index 0})))))
 (comment
   (let [nome* (metronome 60)
         now- (now)]
@@ -61,73 +69,20 @@
                                 ))))
 
 
-(comment
-  (-> @user/data :sequencer (swap! #(update-in % [:repeat] (constantly nil))))
-  (stop)
-  (kill-server))
-
-(comment (overtone.at-at/stop-and-reset-pool! my-pool))
-
-(comment (overtone.sc.server/boot-server))
-
 
 (comment
-  (->> @user/data :canon
-       (map (fn [voice] (sequencer
-                        nome
-                        voice
-                        (fn [vals index]
-                          (if (= 0 (mod index 2))
-                            (swap! quil-test/st #(assoc % :bg (rand 255)))
-                            (swap! quil-test/st #(assoc % :radius (rand 3.0)))
-                            )
-                          ((rand-nth [kick hh]))
-                          nil)
-                        {:repeat 10}
-                        )))))
-
-
-
-(comment
-  (recording-start "~/Desktop/foo.wav")
-  (recording-stop))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;;;;;;;;;;;;;;;;;;;;;; v2
-
-(do
-  (def ref-voice (atom {:started-at (now)
-                        :playing? true}))
-  (def voice (atom {:playing? true
-                    :ref-voice ref-voice
-                    :next-event {:at 5000}}))
-  (defn sequ [voice]
-    (let [starting (-> @voice :ref-voice deref :started-at)
-          next-at (-> @voice :next-event :at)]
-      (apply-at (- (+ next-at starting) 100)
-                #(when (-> @voice :ref-voice deref :playing?)
-                   (do
-                     (apply-at (+ next-at starting) println "hola")
-                     (swap! voice
-                            (fn [v-data]
-                              (update-in v-data
-                                         [:next-event :at]
-                                         (fn [t] (user/spy (+ t 1000))))))
-                     (sequ voice))))))
-
-
-  (sequ voice))
-(swap! ref-voice #(assoc % :playing? false))
+  (require '[nanc-in-a-can.core :refer [converge]])
+  (def kick (freesound 2086))
+  (let [nome (metronome 120)]
+    (->> (converge {:durs (repeat 6 1)
+                    :tempos [1]
+                    :cps [5]
+                    :bpm 120
+                    :period 1})
+         (map (fn [voice] (sequencer
+                          nome
+                          voice
+                          (fn [vals index]
+                            (kick)
+                            nil)
+                          {:repeat nil}))))))

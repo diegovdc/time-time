@@ -1,8 +1,5 @@
 (ns user
-  (:require [clojure.pprint]
-            [overtone.core :as o]))
-
-(def connect o/connect-external-server)
+  (:require [clojure.pprint]))
 
 (defn make-spy [printer]
   (fn [& args]
@@ -43,6 +40,11 @@
 (def data (atom {}))
 
 (defn capture
-  [key]
-  (fn [val]
-    (swap! data #(assoc % key val))))
+  ([key val] ((capture key) val))
+  ([key]
+   (fn [val]
+     (swap! data #(assoc % key val)))))
+
+(defn connect []
+  (eval '(do (require '[overtone.core :as o])
+             (o/boot-external-server))))
