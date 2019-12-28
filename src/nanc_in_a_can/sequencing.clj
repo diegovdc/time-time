@@ -1,28 +1,5 @@
 (ns nanc-in-a-can.sequencing
-  (:use [overtone.live]))
-; setup a sound for our metronome to use
-(def kick (freesound-sample 2086))
-(def hh (sample (freesound-path 44937)))
-(def grey-whale (sample (freesound-path 413377)))
-(def whales-1 (freesound-sample 322539))
-(pan2 (sin-osc 400))
-
-
-(stop)
-(kick)
-(grey-whale)
-(def nome (metronome 200))
-(definst kick* [] (pan2 (play-buf:ar 1 kick)))
-(definst whales-1* [pan 0] (pan2 (play-buf:ar 1 whales-1) pan))
-(kick*)
-(def w1 (whales-1*))
-(def w2 (whales-1*))
-(ctl w1 :pan 1)
-(ctl w2 :pan -1)
-
-(node-pause* w2)
-(node-start* w2)
-
+  (:require [overtone.live :refer :all]))
 
 (defn sequencer- [nome sequence* on-event state]
   (let [{:keys [start-at index repeat]} @state
