@@ -1,7 +1,7 @@
-(ns nanc-in-a-can.taller-abierto.synths.sample-players
-  (:require [nanc-in-a-can.taller-abierto.instruments :as i]
-            [nanc-in-a-can.taller-abierto.standard :refer [*out-channels*]]
-            [overtone.core :as o :refer :all]))
+(ns taller-abierto.synths.sample-players
+  (:require [overtone.core :as o :refer :all]
+            [taller-abierto.instruments :as i]
+            [taller-abierto.standard :refer [*out-channels*]]))
 
 (defsynth m-distort
   "Mono distorted synth that plays thin spectra slices"

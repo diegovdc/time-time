@@ -1,9 +1,8 @@
-(ns nanc-in-a-can.taller-abierto.main-sequencer
-  (:require
-   [clojure.spec.alpha :as s]
-   [nanc-in-a-can.taller-abierto.internal :refer [arg-count validate]]
-   [overtone.at-at :as at-at]
-   [overtone.music.time :refer [apply-at now]]))
+(ns taller-abierto.main-sequencer
+  (:require [clojure.spec.alpha :as s]
+            [overtone.at-at :as at-at]
+            [overtone.music.time :refer [apply-at now]]
+            [taller-abierto.internal :refer [arg-count validate]]))
 
 (s/def ::synth #(= (arg-count %) 0))
 (s/def ::at number?)

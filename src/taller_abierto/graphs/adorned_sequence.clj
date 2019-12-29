@@ -1,11 +1,11 @@
-(ns nanc-in-a-can.taller-abierto.graphs.adorned-sequence
+(ns taller-abierto.graphs.adorned-sequence
   "Protoipo de una sequencia de canones adornados, ver `tracks`"
   (:require [nanc-in-a-can.standard :refer [->xos dur->sec]]
-            [nanc-in-a-can.taller-abierto.adorned-sample :refer [adorned-sample]]
-            [nanc-in-a-can.taller-abierto.instruments :as i]
-            [nanc-in-a-can.taller-abierto.standard :refer [ch]]
-            [nanc-in-a-can.taller-abierto.synths.sample-players :refer [m-distort]]
-            [overtone.core :as o]))
+            [overtone.core :as o]
+            [taller-abierto.adorned-sample :refer [adorned-sample]]
+            [taller-abierto.instruments :as i]
+            [taller-abierto.standard :refer [ch]]
+            [taller-abierto.synths.sample-players :refer [m-distort]]))
 
 (def m-rand2* (memoize rand))
 
@@ -58,4 +58,5 @@
 (comment
   (require '[nanc-in-a-can.taller-abierto.main-sequencer :as ms])
   (def player (ms/play! tracks))
-  (ms/stop! player))
+  (ms/stop! player)
+  (o/stop))

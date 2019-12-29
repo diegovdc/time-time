@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.taller-abierto.graphs.logic.dijkstra
+(ns taller-abierto.graphs.logic.dijkstra
   "By kototamo@gmail.com, taken from https://snipplr.com/view/22183/dijkstras-algorithm-in-clojure/")
 
 (declare dijkstra build-path add-rdist update-rdists take-minnode)

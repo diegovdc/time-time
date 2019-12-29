@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.taller-abierto.groups
+(ns taller-abierto.groups
   (:require [overtone.core :refer :all]))
 
 (defonce main-g (group "get-on-the-bus main"))

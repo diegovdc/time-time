@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.taller-abierto.instruments
+(ns taller-abierto.instruments
   (:require [clojure.string :as string]
             [overtone.core :as o :refer :all]))
 

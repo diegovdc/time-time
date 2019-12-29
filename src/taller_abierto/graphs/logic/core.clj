@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.taller-abierto.graphs.logic.core)
+(ns taller-abierto.graphs.logic.core)
 
 (defn get-next-node [history graph]
   (let [prev-node (or (last history)

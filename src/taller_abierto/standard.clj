@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.taller-abierto.standard
+(ns taller-abierto.standard
   (:require [overtone.core :refer :all]))
 
 (def ^:dynamic *out-channels* 2)

@@ -1,8 +1,8 @@
-(ns nanc-in-a-can.taller-abierto.sample-canon
+(ns taller-abierto.sample-canon
   (:require [nanc-in-a-can.sequencing :refer [sequencer]]
             [nanc-in-a-can.standard :refer [nthw rand-pos]]
-            [nanc-in-a-can.taller-abierto.standard :refer [get-instruments get-synth xo-play?]]
-            [nanc-in-a-can.taller-abierto.instruments :as i]))
+            [taller-abierto.instruments :as i]
+            [taller-abierto.standard :refer [get-instruments get-synth xo-play?]]))
 
 (defn smpl-playa [vals index nome state sample-sequence pan]
   (let [at-idx (get @sample-sequence index)
