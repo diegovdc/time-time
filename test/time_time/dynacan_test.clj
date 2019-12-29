@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.dynacan-test
+(ns time-time.dynacan-test
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is testing]]

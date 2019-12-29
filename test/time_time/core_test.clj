@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.core-test
+(ns time-time.core-test
   (:require [clojure.test :refer :all]
             [time-time.converge :refer :all]))
 
