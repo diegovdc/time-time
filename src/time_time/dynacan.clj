@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.dynacan)
+(ns time-time.dynacan)
 
 ;; given a list of durs and a state current-index, current-elapsed calculate next n events {:dur :elapsed}
 ;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time

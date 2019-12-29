@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.sequencing-2
+(ns time-time.sequencing-2
   (:require [overtone.music.time :refer [apply-at now]]))
 
 (def config (atom {:lag 100}))

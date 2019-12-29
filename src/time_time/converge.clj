@@ -1,5 +1,5 @@
-(ns nanc-in-a-can.converge
-  (:require [nanc-in-a-can.standard :refer [dur->sec]]))
+(ns time-time.converge
+  (:require [time-time.standard :refer [dur->sec]]))
 
 ;; transposicion temporal usando :elapsed, multiples cps
 (defn- converge-transposition [durs cps]

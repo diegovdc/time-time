@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.sequencing
+(ns time-time.sequencing
   (:require [overtone.live :refer :all]))
 
 (defn sequencer- [nome sequence* on-event state]
@@ -65,7 +65,7 @@
                                 {:repeat :inf}))))
 
 (comment
-  (require '[nanc-in-a-can.core :refer [converge]])
+  (require '[time-time.converge :refer [converge]])
   (def kick (freesound 2086))
   (let [nome (metronome 120)]
     (->> (converge {:durs (repeat 6 1)

@@ -1,15 +1,16 @@
 (ns nanc-in-a-can.dynacan-test
-  (:require
-   [clojure.pprint :refer [pprint]]
-   [nanc-in-a-can.dynacan :refer [get-event-at
-                                  find-first-event-using-cp
-                                  get-next-event
-                                  get-next-n-events
-                                  normalize-dur]]
-   [clojure.test :refer [deftest is testing]]
-   [clojure.spec.gen.alpha :as gen]
-   [clojure.test.check.clojure-test :refer [defspec]]
-   [clojure.test.check.properties :as prop]))
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.test :refer [deftest is testing]]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :as prop]
+            [time-time.dynacan
+             :refer
+             [find-first-event-using-cp
+              get-event-at
+              get-next-event
+              get-next-n-events
+              normalize-dur]]))
 
 (comment (require '[user :refer [spy]]))
 

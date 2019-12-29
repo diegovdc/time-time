@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.standard
+(ns time-time.standard
   (:require
    [clojure.string :as string]
    [overtone.core :refer :all]))

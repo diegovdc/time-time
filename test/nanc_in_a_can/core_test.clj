@@ -1,6 +1,6 @@
 (ns nanc-in-a-can.core-test
   (:require [clojure.test :refer :all]
-            [nanc-in-a-can.converge :refer :all]))
+            [time-time.converge :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."

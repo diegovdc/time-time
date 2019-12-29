@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.nanokontrol
+(ns time-time.nanokontrol
   (:require [overtone.live :refer [on-event remove-event-handler]]))
 
 
