@@ -15,7 +15,7 @@
                   :playing? true}))
 
 (do
-  (swap! voice #(merge % {:loop? true :next-event (+ 1000 (now))}))
+  #_(swap! voice #(merge % {:loop? true :next-event (+ 1000 (now))}))
 
   (defn calculate-next-voice-state
     "Calculates next state of a voice and if it should be scheduled"
@@ -49,6 +49,6 @@
                    (apply-at next-event fn*))]
       (apply-at (- next-event (:lag @config)) event)))
 
-  (schedule! voice))
+  #_(schedule! voice))
 
-(swap! voice #(assoc % :loop? false))
+#_(swap! voice #(assoc % :loop? false))

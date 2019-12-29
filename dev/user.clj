@@ -1,6 +1,10 @@
 (ns user
-  (:require [clojure.pprint]))
+  (:require
+   [clojure.pprint]
+   [clojure.tools.namespace.repl :refer [set-refresh-dirs refresh refresh-all]]))
 
+(set-refresh-dirs "src" "test")
+(defn reset [] (refresh))
 (defn make-spy [printer]
   (fn [& args]
     (let [off (some #(= % :mute) args)

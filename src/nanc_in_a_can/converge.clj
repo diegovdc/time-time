@@ -1,4 +1,4 @@
-(ns nanc-in-a-can.core
+(ns nanc-in-a-can.converge
   (:require [nanc-in-a-can.standard :refer [dur->sec]]))
 
 ;; transposicion temporal usando :elapsed, multiples cps
@@ -31,7 +31,7 @@
                                                     :remainder? true}]
                                     (conj voice last-event)))
         offseted-voices (map-indexed add-cp-offset (rest vdurs))]
-    (map add-remainder (conj offseted-voices longest))))
+    (mapv add-remainder (conj offseted-voices longest))))
 
 (defn get-period-scaling-factor
   "Returns a factor to rescale tempos to fit make a canon fit a given period"
@@ -45,7 +45,7 @@
     :bpm - used for setting period, and required because of that"
   (let [slowest-tempo (apply min tempos)
         total-dur (->> durs
-                       (map #(* slowest-tempo %))
+                       (mapv #(* slowest-tempo %))
                        (apply +))
         scaling-factor (if-not (and period bpm)
                          1
@@ -53,21 +53,22 @@
                           period
                           total-dur
                           bpm))
-        vdurs (map-indexed
-               (fn [index tempo]
-                 (reduce (fn [acc dur]
-                           (let [new-dur (* scaling-factor (/ dur tempo))
-                                 last-dur (-> acc last :dur (or 0))
-                                 last-elapsed (-> acc last :elapsed (or 0))
-                                 elapsed (+ last-dur last-elapsed)]
-                             (conj acc
-                                   {:dur new-dur
-                                    :elapsed elapsed
-                                    :tempo tempo
-                                    :tempo-index index})))
-                         []
-                         durs))
-               tempos)
+        vdurs (doall
+               (map-indexed
+                (fn [index tempo]
+                  (reduce (fn [acc dur]
+                            (let [new-dur (* scaling-factor (/ dur tempo))
+                                  last-dur (-> acc last :dur (or 0))
+                                  last-elapsed (-> acc last :elapsed (or 0))
+                                  elapsed (+ last-dur last-elapsed)]
+                              (conj acc
+                                    {:dur new-dur
+                                     :elapsed elapsed
+                                     :tempo tempo
+                                     :tempo-index index})))
+                          []
+                          durs))
+                tempos))
         canon (converge-transposition vdurs cps)]
     (with-meta canon {:total-dur total-dur
                       :bpm (and period bpm)
