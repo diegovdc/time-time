@@ -25,7 +25,7 @@
                                                        vals
                                                        (apply +)
                                                        (- total-dur))
-                                        last-event {:dur remainder
+                                       last-event {:dur (* -1 remainder)
                                                     :elapsed (+ (:dur (last voice))
                                                                 (:elapsed (last voice)))
                                                     :remainder? true}]
@@ -33,26 +33,52 @@
         offseted-voices (map-indexed add-cp-offset (rest vdurs))]
     (mapv add-remainder (conj offseted-voices longest))))
 
-(defn get-period-scaling-factor
-  "Returns a factor to rescale tempos to fit make a canon fit a given period"
-  [period total-dur bpm]
-  (->> (dur->sec total-dur bpm)
-       (/ period)))
+
+(do
+  (defn get-total-dur [slowest-tempo durs]
+    (->> durs
+         (map #(* slowest-tempo %))
+         (apply +))
+    )
+  (let [durs [1 1 2 3]
+        slowest-tempo 1]
+    (get-total-dur slowest-tempo durs)
+    ))
+
+(do
+  (defn get-period-scaling-factor
+    "Returns a factor to rescale tempos to fit make a canon fit a given period"
+    [period total-dur bpm]
+    (->> (dur->sec total-dur bpm)
+         (/ period)))
+
+  (do
+;;;  test `get-period-scaling-factor`
+    (let [durs [1 1 1 1 1]
+          slowest-tempo 1
+          total-dur (* slowest-tempo (apply + durs))
+          period 3
+          scaling-factor (get-period-scaling-factor period (apply + durs) 60)]
+      (->> durs (map #(* % scaling-factor))
+           (apply +)
+           (= period)))))
+
+
+
 
 (defn converge [{:keys [durs tempos cps period bpm] :or {cps [0]}}]
   "Optional params:
     :period - in seconds
     :bpm - used for setting period, and required because of that"
   (let [slowest-tempo (apply min tempos)
-        total-dur (->> durs
-                       (mapv #(* slowest-tempo %))
-                       (apply +))
+        total-dur (apply + durs)
         scaling-factor (if-not (and period bpm)
                          1
-                         (get-period-scaling-factor
-                          period
-                          total-dur
-                          bpm))
+                         (* (get-period-scaling-factor
+                             period
+                             total-dur
+                             bpm)
+                            slowest-tempo))
         vdurs (doall
                (map-indexed
                 (fn [index tempo]
@@ -83,16 +109,7 @@
   [canon bpm]
   (-> canon meta :total-dur (dur->sec bpm)))
 
-(do
-  ;;;  test `get-period-scaling-factor`
-  (let [durs [1 1 1 1 1]
-        slowest-tempo 1
-        total-dur (* slowest-tempo (apply + durs))
-        period 3
-        scaling-factor (get-period-scaling-factor period total-dur 60)]
-    (->> durs (map #(* % scaling-factor))
-         (apply +)
-         (= period))))
+
 
 (comment
   (def canon (converge {:durs (flatten (repeat 300 [1/4 1]))
@@ -101,11 +118,12 @@
   (def canon-2 (converge {:durs (repeat 5 1)
                           :tempos [1 2]
                           :cps [3]}))
-  (def canon-3 (converge {:durs (repeat 5 1)
-                          :tempos [1 2]
-                          :cps [3]
-                          :period 3
-                          :bpm 60}))
+  (def canon-3 (user/spy (converge {:durs (repeat 5 1)
+                                    :tempos [5 2]
+                                    :cps [3]
+                                    ;; :period 3
+                                    ;; :bpm 60
+                                    })))
   (def canon-4 (converge {:durs (repeat 5 1)
                           :tempos [1 2]
                           :cps [3]

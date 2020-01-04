@@ -72,7 +72,7 @@
                     :tempos [1]
                     :cps [5]
                     :bpm 120
-                    :period 1})
+                    :period 20})
          (map (fn [voice] (sequencer
                            nome
                            voice
