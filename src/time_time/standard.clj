@@ -10,6 +10,11 @@
   [dur bpm]
   (* dur (/ 60 bpm)))
 
+(defn dur->ms
+  "Takes an absolute duration and converts it to milliseconds"
+  [dur bpm]
+  (* dur (/ 60 bpm) 1000))
+
 (defn nthw [coll index not-found]
   (try
     (let [i (mod index (count coll))]

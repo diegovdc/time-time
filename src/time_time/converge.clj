@@ -66,7 +66,7 @@
 
 
 
-(defn converge [{:keys [durs tempos cps period bpm] :or {cps [0]}}]
+(defn converge [{:keys [durs tempos cps period bpm] :or {cps [0]} :as data}]
   "Optional params:
     :period - in seconds
     :bpm - used for setting period, and required because of that"
@@ -96,7 +96,8 @@
                           durs))
                 tempos))
         canon (converge-transposition vdurs cps)]
-    (with-meta canon {:total-dur total-dur
+    (with-meta canon {:name (data :name)
+                      :total-dur total-dur
                       :bpm (and period bpm)
                       :period (and bpm period)
                       :scaled-dur (* total-dur scaling-factor)
@@ -107,7 +108,7 @@
 (defn canon-dur
   "Returns the total duration of the canon in seconds"
   [canon bpm]
-  (-> canon meta :total-dur (dur->sec bpm)))
+  (-> canon meta :scaled-dur (dur->sec bpm)))
 
 
 
