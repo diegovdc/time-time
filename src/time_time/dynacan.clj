@@ -4,9 +4,6 @@
 ;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time
 
 
-;; base data
-(def durs [1 2 1])
-(def v1 (atom {:ratio 1}))
 ;;;; given a list of durs and a ratio calculate event (elapsed-at) at index i for voice v1
 
 (defn get-event-at
@@ -30,7 +27,7 @@
 ;;;; given a list of durs, a ratio, an event at index cp and a moment in time calculate most inmediate possible event (the one closest to elapsed-at >= 0
 
 (defn get-partial-cycle-durs
-  "start-index must already be in modulo form"
+  ;; NOTE start-index must already be in modulo form
   [dur-acc ratio durs start-index max-elapsed]
   (loop [dur-acc* dur-acc
          i (dec start-index)]
@@ -44,9 +41,8 @@
          :completed-all (> next-acc-val max-elapsed) }
         (recur next-acc-val (dec i))))))
 ;;*
-(do
-  (defn find-first-event-using-cp
-    "The first event can be deduced by conceptualizing that the first event may
+(defn find-first-event-using-cp
+  "The first event can be deduced by conceptualizing that the first event may
   be found by going backwards in time starting from the cp.
   Th cp is at some point of the durs vector (cycle) so we need to start from
   there and go back to the begining of the vector.
@@ -65,42 +61,42 @@
   than 0.
   The value that is returned is the dur index and the elapsed-at of the first
   event."
-    [ratio durs cp cp-elapsed-at]
-    (let [durs-size (count durs)
-          pcy-end (get-partial-cycle-durs
-                   0
+  [ratio durs cp cp-elapsed-at]
+  (let [durs-size (count durs)
+        pcy-end (get-partial-cycle-durs
+                 0
+                 ratio
+                 durs
+                 (mod cp durs-size)
+                 cp-elapsed-at)
+        cycle-total (* ratio (apply + durs))
+        cyn->cy0 (quot (pcy-end :elapsed-at) cycle-total)
+        pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
+        pcy-start (get-partial-cycle-durs
+                   pcy-end+cyn->cy0
                    ratio
                    durs
-                   (mod cp durs-size)
+                   durs-size
                    cp-elapsed-at)
-          cycle-total (* ratio (apply + durs))
-          cyn->cy0 (quot (pcy-end :elapsed-at) cycle-total)
-          pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
-          pcy-start (get-partial-cycle-durs
-                     pcy-end+cyn->cy0
-                     ratio
-                     durs
-                     durs-size
-                     cp-elapsed-at)
-          index (if (pcy-end :completed-all)
-                  (pcy-end :index)
-                  (pcy-start :index))
-          elapsed-at (if (pcy-end :completed-all)
-                       (pcy-end :elapsed-at)
-                       (pcy-start :elapsed-at))]
-      {:ratio ratio
-       :elapsed elapsed-at
-       :index (mod index durs-size)
-       :cp cp
-       :cp-at cp-elapsed-at
-       :echoic-distance (- cp-elapsed-at elapsed-at)
-       :echoic-distance-event-qty  (+
-                                    ;; start-index of the end cycle
-                                    (mod cp durs-size)
-                                    ;; intermediate cycles
-                                    (* durs-size cyn->cy0)
-                                    ;; start index of last cycle
-                                    (- durs-size (pcy-start :index)))})))
+        index (if (pcy-end :completed-all)
+                (pcy-end :index)
+                (pcy-start :index))
+        elapsed-at (if (pcy-end :completed-all)
+                     (pcy-end :elapsed-at)
+                     (pcy-start :elapsed-at))]
+    {:ratio ratio
+     :elapsed elapsed-at
+     :index (mod index durs-size)
+     :cp cp
+     :cp-at cp-elapsed-at
+     :echoic-distance (- cp-elapsed-at elapsed-at)
+     :echoic-distance-event-qty  (+
+                                  ;; start-index of the end cycle
+                                  (mod cp durs-size)
+                                  ;; intermediate cycles
+                                  (* durs-size cyn->cy0)
+                                  ;; start index of last cycle
+                                  (- durs-size (pcy-start :index)))}))
 
 (defn get-next-event [voice durs]
   (merge voice {:index (inc (:index voice))
@@ -168,46 +164,55 @@
 
 
 (comment
-  (require '[nanc-in-a-can.sequencing-2 :refer [schedule!]]
+  (require '[time-time.sequencing-2 :refer [schedule!]]
            '[overtone.music.time :refer [now apply-at]])
-  (do
-    (def now* (+ 1000 (now)))
-    (reset! v1'
-            (merge
-             {:ratio reference-ratio}
-             (find-first-event-using-cp reference-ratio
-                                        durs
-                                        cp
-                                        elapsed-time-at-cp)
-             {:fn #(println "v1" (select-keys % [:index :elapsed-at]))
-              :started-at now*
-              :next-event 0
-              :durs durs
-              :tempo 2000
-              :loop? true
-              :playing? true}))
+  (let [durs [1 1 2 1 1]
+        reference-ratio 2
+        subordinate-ratio 3
+        cp 2
+        cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
+        now* (now)]
+    (do
+      (def v1' (atom {:ratio 1}))
+      (def v2' (atom {:ratio 1}))
+      (reset! v1'
+              (merge
+               {:ratio reference-ratio}
+               (let [x (find-first-event-using-cp reference-ratio ; TODO improve renaming of :elapsed key
+                                                  durs
+                                                  cp
+                                                  cp-elapsed-at)]
+                 (assoc x :elapsed-at (x :elapsed)))
+               {:on-event #(println "v1"  (select-keys (:data %) [:index :elapsed-at :dur])
+                                    (- (now) now*))
+                :started-at now*
+                :next-event now*
+                :durs durs
+                :tempo 1000
+                :loop? true
+                :playing? true}))
 
 
-    (reset! v2'
-            (merge
-             {:ratio subordinate-ratio}
-             (find-first-event-using-cp subordinate-ratio
-                                        durs
-                                        cp
-                                        elapsed-time-at-cp)
-             {:fn #(println "v2" (select-keys % [:index :elapsed-at]))
-              :started-at now*
-              :next-event 0
-              :durs durs
-              :tempo 2000
-              :loop? true
-              :playing? true}))
+      (reset! v2'
+              (merge
+               {:ratio subordinate-ratio}
+               (find-first-event-using-cp subordinate-ratio
+                                          durs
+                                          cp
+                                          cp-elapsed-at)
+               {:on-event #(println "v2" (select-keys % [:index :elapsed-at]) (now))
+                :started-at now*
+                :next-event 0
+                :durs durs
+                :tempo 2000
+                :loop? false
+                :playing? true}))
 
-    (println @v1')
-    (println @v2')
-                                        ;(schedule! v1')
-                                        ; (schedule! v2')
-    )
+      (user/spy @v1')
+      #_(println @v2')
+      (schedule! v1')
+      #_(schedule! v2')
+      ))
 
   (swap! v1' #(assoc % :loop? false))
   (swap! v2' #(assoc % :loop? false)))
