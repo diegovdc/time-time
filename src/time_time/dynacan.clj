@@ -59,7 +59,7 @@
   (- cp-elapsed-at (+ pcy-end cyn->cy0 pcy-start))
   The difference of cp-elapsed-at with the previous result can not be smaller
   than 0.
-  The value that is returned is the dur index and the elapsed-at of the first
+  The value that is returned is the dur `index` and the `elapsed-at` of the first
   event."
   [ratio durs cp cp-elapsed-at]
   (let [durs-size (count durs)
@@ -126,10 +126,11 @@
              (conj res
                    (merge
                     voice
-                    (let [dur (* (voice :ratio)
-                                 (nth durs (mod index (count durs))))]
+                    (let [original-dur (nth durs (mod index (count durs)))
+                          dur (* (voice :ratio) original-dur)]
                       {:index index
                        :dur dur
+                       :original-dur original-dur
                        :elapsed (+ (get (last res) :dur 0)
                                    (get (last res)
                                         :elapsed
@@ -162,60 +163,87 @@
 ;;Test;;
 ;;;;;;;;
 
+(comment
+  (require '[clojure.test :refer [deftest testing is]])
+  (let [durs [2 2 4 1]
+        reference-ratio 1
+        subordinate-ratio 2/3
+        cp 3
+        cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
+        reference-first-event (find-first-event-using-cp
+                               reference-ratio
+                               durs
+                               cp
+                               cp-elapsed-at)
+        subordinate-first-event (find-first-event-using-cp
+                                 subordinate-ratio
+                                 durs
+                                 cp
+                                 cp-elapsed-at)
+        reference-voice reference-first-event
+        subordinate-voice subordinate-first-event
+        simplify-data (fn [voice-events]
+                        (map #(select-keys % [:index
+                                              :echoic-distance
+                                              :elapsed
+                                              :original-dur])
+                             voice-events))
+        reference-voice-events (simplify-data
+                                (get-next-n-events durs reference-voice 4))
+        subordinate-voice-events (simplify-data
+                                  (get-next-n-events durs subordinate-voice 4))
+        canonic-sequence {:ref-voice-events reference-voice-events
+                          :sub-voice-events subordinate-voice-events}]
+    (testing "How a canonic sequence of events should look like (map keys are just for reference). NOTE sub-voices may start somewhere other that index 0 of `durs`, in fact they will start as close as possible to `:elapsed` time `0`"
+      (is (= canonic-sequence
+             {:ref-voice-events
+              '({:index 0, :echoic-distance 8, :elapsed 0, :original-dur 2}
+                {:index 1, :echoic-distance 6, :elapsed 2, :original-dur 2}
+                {:index 2, :echoic-distance 4, :elapsed 4, :original-dur 4}
+                {:index 3, :echoic-distance 0, :elapsed 8, :original-dur 1}
+                {:index 4, :echoic-distance -1, :elapsed 9, :original-dur 2}),
+              :sub-voice-events
+              '({:index 3, :echoic-distance 6N, :elapsed 2N, :original-dur 1}
+                {:index 4, :echoic-distance 16/3, :elapsed 8/3, :original-dur 2}
+                {:index 5, :echoic-distance 4N, :elapsed 4N, :original-dur 2}
+                {:index 6, :echoic-distance 8/3, :elapsed 16/3, :original-dur 4}
+                {:index 7, :echoic-distance 0N, :elapsed 8N, :original-dur 1})})))
+    (testing "Convergence point (`cp`) falls at `:index` 3 of `ref-voice`, with  `:original-dur` equaling 1, and with 8 units of `:elapsed` time. NOTE that indexes in different voices will not necessarily be the same, but the `:original-dur` (i.e. the nth index at `durs`) will be the same, as will be the `:elapsed` time units, and the `:echoic-distance`. Therefore any player implementation should be capable of respecting this results")
+    (is (= {:elapsed 8 :original-dur 1 :echoic-distance 0}
+           (-> canonic-sequence :ref-voice-events (nth 3)
+               (select-keys [:elapsed :original-dur :echoic-distance]))
+           (-> canonic-sequence :sub-voice-events (nth 4)
+               (select-keys [:elapsed :original-dur :echoic-distance]))))))
+
 
 (comment
-  (require '[time-time.sequencing-2 :refer [schedule!]]
-           '[overtone.music.time :refer [now apply-at]])
-  (let [durs [1 1 2 1 1]
-        reference-ratio 2
-        subordinate-ratio 3
+  (require '[time-time.sequencing-3 :refer [play!]]
+           '[overtone.music.time :refer [now apply-at]]
+           '[taoensso.timbre :as log])
+  (let [durs [2 2 4 2]
+        reference-ratio 1
+        subordinate-ratio 2/3
         cp 2
         cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
-        now* (now)]
+        now* (+ 1000 (now))
+        subordinate-first-event (user/spy (find-first-event-using-cp
+                                           subordinate-ratio
+                                           durs
+                                           cp
+                                           cp-elapsed-at))
+        log-fn (fn [id]
+                 (fn [{:keys [data]}] (log/info id (data :index) (- (now) now*))))]
     (do
-      (def v1' (atom {:ratio 1}))
-      (def v2' (atom {:ratio 1}))
-      (reset! v1'
-              (merge
-               {:ratio reference-ratio}
-               (let [x (find-first-event-using-cp reference-ratio ; TODO improve renaming of :elapsed key
-                                                  durs
-                                                  cp
-                                                  cp-elapsed-at)]
-                 (assoc x :elapsed-at (x :elapsed)))
-               {:on-event #(println "v1"  (select-keys (:data %) [:index :elapsed-at :dur])
-                                    (- (now) now*))
-                :started-at now*
-                :next-event now*
-                :durs durs
-                :tempo 1000
-                :loop? true
-                :playing? true}))
-
-
-      (reset! v2'
-              (merge
-               {:ratio subordinate-ratio}
-               (find-first-event-using-cp subordinate-ratio
-                                          durs
-                                          cp
-                                          cp-elapsed-at)
-               {:on-event #(println "v2" (select-keys % [:index :elapsed-at]) (now))
-                :started-at now*
-                :next-event 0
-                :durs durs
-                :tempo 2000
-                :loop? false
-                :playing? true}))
-
-      (user/spy @v1')
-      #_(println @v2')
-      (schedule! v1')
-      #_(schedule! v2')
-      ))
+      (def v1' (play! durs (log-fn "v1") :ratio reference-ratio :start-time now*))
+      (def v2' (play! durs (log-fn "v2")
+                      :ratio subordinate-ratio
+                      :start-time now*
+                      :start-index (:index subordinate-first-event)
+                      :elapsed (:elapsed subordinate-first-event)
+                      :loop? true))))
 
   (swap! v1' #(assoc % :loop? false))
-  (swap! v2' #(assoc % :loop? false)))
+  (swap! v2' #(assoc % :playing? false)))
 
 
 

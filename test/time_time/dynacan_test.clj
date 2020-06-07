@@ -1,5 +1,6 @@
 (ns time-time.dynacan-test
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as async]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
@@ -31,8 +32,65 @@
         (is (= (get-event-at 1/2 durs 6)
                {:current-dur 1/2 :elapsed 5}))))))
 
+(comment
+  "IMPORTANT TEST.
+   It will make clear how the system works at the present time. Please read the
+   `testing` descriptions. The property based tests that follow will also test
+   the same things (with other data) but in a less explicit manner.")
+(deftest temporal-canon-sequencing-data-using-get-event-at-and-find-first-event-using-cp
+  (let [durs [2 2 4 1]
+        reference-ratio 1
+        subordinate-ratio 2/3
+        cp 3
+        cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
+        reference-first-event (find-first-event-using-cp
+                               reference-ratio
+                               durs
+                               cp
+                               cp-elapsed-at)
+        subordinate-first-event (find-first-event-using-cp
+                                 subordinate-ratio
+                                 durs
+                                 cp
+                                 cp-elapsed-at)
+        ;; first events can also be considered here as `voices`
+        ;; (they contain the necessary data)
+        reference-voice reference-first-event
+        subordinate-voice subordinate-first-event
+        simplify-data (fn [voice-events]
+                        (map #(select-keys % [:index
+                                              :echoic-distance
+                                              :elapsed
+                                              :original-dur])
+                             voice-events))
+        reference-voice-events (simplify-data
+                                (get-next-n-events durs reference-voice 4))
+        subordinate-voice-events (simplify-data
+                                  (get-next-n-events durs subordinate-voice 4))
+        canonic-sequence {:ref-voice-events reference-voice-events
+                          :sub-voice-events subordinate-voice-events}]
+    (testing "How a canonic sequence of events should look like (map keys are just for reference). NOTE sub-voices may start somewhere other that index 0 of `durs`, in fact they will start as close as possible to `:elapsed` time equaling `0`"
+      (is (= canonic-sequence
+             {:ref-voice-events
+              '({:index 0, :echoic-distance 8, :elapsed 0, :original-dur 2}
+                {:index 1, :echoic-distance 6, :elapsed 2, :original-dur 2}
+                {:index 2, :echoic-distance 4, :elapsed 4, :original-dur 4}
+                {:index 3, :echoic-distance 0, :elapsed 8, :original-dur 1}
+                {:index 4, :echoic-distance -1, :elapsed 9, :original-dur 2}),
+              :sub-voice-events
+              '({:index 3, :echoic-distance 6N, :elapsed 2N, :original-dur 1}
+                {:index 4, :echoic-distance 16/3, :elapsed 8/3, :original-dur 2}
+                {:index 5, :echoic-distance 4N, :elapsed 4N, :original-dur 2}
+                {:index 6, :echoic-distance 8/3, :elapsed 16/3, :original-dur 4}
+                {:index 7, :echoic-distance 0N, :elapsed 8N, :original-dur 1})})))
+    (testing "Convergence point (`cp`) falls at `:index` 3 of `ref-voice`, with  `:original-dur` equaling 1, and with 8 units of `:elapsed` time. NOTE that indexes in different voices will not necessarily be the same, but the `:original-dur` (i.e. the nth index at `durs`) will be the same, as will be the `:elapsed` time units, and the `:echoic-distance`. Therefore any player implementation should be capable of respecting this results")
+    (is (= {:elapsed 8 :original-dur 1 :echoic-distance 0}
+           (-> canonic-sequence :ref-voice-events (nth 3)
+               (select-keys [:elapsed :original-dur :echoic-distance]))
+           (-> canonic-sequence :sub-voice-events (nth 4)
+               (select-keys [:elapsed :original-dur :echoic-distance]))))))
 
-(defn test-existence-of-cp-with-on-the-same-duration
+(defn test-existence-of-cp-on-the-same-duration-for-different-voices
   "Demonstrate that the event at `cp` in two different voices occurs at the same
   time each voices is a map with keys: `:ratio` `:elapsed-at`,
   `:index`, `elapsed-at` and `:index` for both voices are calculated with
@@ -164,3 +222,38 @@
                            (first-event
                             :echoic-distance-event-qty)))]
        (= 0 (cp-event :echoic-distance))))))
+
+
+
+
+
+(comment
+  ;; WIP, test for the player...
+  (deftest )
+
+
+
+  (defn <!!?
+    "Reads from chan synchronously, waiting for a given maximum of milliseconds.
+  If the value does not come in during that period, returns :timed-out. If
+  milliseconds is not given, a default of 1000 is used."
+    ([chan]
+     (<!!? chan 1000))
+    ([chan milliseconds]
+     (let [timeout (async/timeout milliseconds)
+           [value port] (async/alts!! [chan timeout])]
+       (if (= chan port)
+         value
+         :timed-out))))
+
+  (def result-chan (async/chan ))
+
+  (is (user/spy :res (= 42 (<!!? result-chan 2000))))
+  (async/>!! result-chan 42)
+  (async/take 10 result-chan)
+
+
+  (async/go-loop [seconds 1]
+    (async/<! (async/timeout 1000))
+    (print "waited" seconds "seconds")
+    (when (< seconds 5) (recur (inc seconds)))))

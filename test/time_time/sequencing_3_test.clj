@@ -15,7 +15,7 @@
           :started-at 0,
           :elapsed 1000,
           :ratio 1,
-          :current-event-dur 1000}
+          :current-event {:dur-ms 1000, :dur 1}}
          (calculate-next-voice-state {:durs [1 2 1]
                                       :index 0
                                       :tempo 60
@@ -31,18 +31,17 @@
           :started-at 0,
           :elapsed 3000,
           :ratio 1,
-          :current-event-dur 2000}
+          :current-event {:dur-ms 2000, :dur 2}}
          (calculate-next-voice-state {:durs [1 2 1],
                                       :index 1,
                                       :tempo 60,
                                       :loop? false,
                                       :started-at 0,
                                       :elapsed 1000,
-                                      :ratio 1,
-                                      :current-event-dur 1000}))))
+                                      :ratio 1}))))
   (testing "`current-event-dur` is related to tempo"
-    (is (= 500
-           (:current-event-dur
+    (is (= {:dur-ms 500N, :dur 1}
+           (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :index 0
                                          :tempo 120
@@ -50,8 +49,8 @@
                                          :started-at 0
                                          :elapsed 0
                                          :ratio 1}))))
-    (is (= 1000
-           (:current-event-dur
+    (is (= {:dur-ms 1000N, :dur 2}
+           (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :index 1
                                          :tempo 120
@@ -59,15 +58,34 @@
                                          :started-at 0
                                          :elapsed 0
                                          :ratio 1}))))
-    (is (= 4000
-           (:current-event-dur
+    (is (= {:dur-ms 4000, :dur 2}
+           (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :index 1
                                          :tempo 30
                                          :loop? false
                                          :started-at 0
                                          :elapsed 0
-                                         :ratio 1}))))))
+                                         :ratio 1})))))
+  (testing "Different ratio"
+    (is (= {:dur-ms 250N, :dur 1/2}
+           (:current-event
+            (calculate-next-voice-state {:durs [1 2 1]
+                                         :index 0
+                                         :tempo 120
+                                         :loop? false
+                                         :started-at 0
+                                         :elapsed 0
+                                         :ratio 1/2}))))
+    (is (= {:dur-ms 500N, :dur 1}
+           (:current-event
+            (calculate-next-voice-state {:durs [1 2 1]
+                                         :index 1
+                                         :tempo 120
+                                         :loop? false
+                                         :started-at 0
+                                         :elapsed 0
+                                         :ratio 1/2}))))))
 
 (deftest play-event?-test
   (testing "Play a first and second event but not a third nor fourth"
