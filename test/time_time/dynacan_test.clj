@@ -32,12 +32,74 @@
         (is (= (get-event-at 1/2 durs 6)
                {:current-dur 1/2 :elapsed 5}))))))
 
+(deftest find-first-event-using-cp-test
+  #_"Non generative, human readable tests"
+  (testing "Ratio is twice as slow so the voice would start `index` is 1 with elapsed 0, so`cp` ocurrs on index 2."
+    (let [cp 2
+          ref-ratio 1
+          ratio 2
+          durs [1 1 1]
+          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+      (is (= {:ratio 2,
+              :elapsed 0,
+              :index 1,
+              :cp 2,
+              :cp-at 2,
+              :echoic-distance 2,
+              :echoic-distance-event-qty 2}
+             (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+
+  (testing "Voice would start at index 2 directly on cp"
+    (let [ref-ratio 1
+          ratio 2
+          cp 2
+          durs [1 2 3]
+          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+      (is (= {:ratio 2,
+              :elapsed 3,
+              :index 2,
+              :cp 2,
+              :cp-at 3,
+              :echoic-distance 0,
+              :echoic-distance-event-qty 2}
+             (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+  (testing "Voice would start at `index` 2 on time (`:elapsed`) 0. So durations are (+ 1 1.5 0.5 1) which equals three. So index 2 will fall on cp."
+    (let [ref-ratio 1
+          ratio 1/2
+          cp 2
+          durs [1 2 3]
+          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+      (is (= {:ratio 1/2,
+              :elapsed 0N,
+              :index 2,
+              :cp 2,
+              :cp-at 3,
+              :echoic-distance 3N,
+              :echoic-distance-event-qty 3N}
+             (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+
+  (testing "Non-looping first-event. Because ratio < ref-ratio and `:loop?` is `false`, the voice would start at `index` 0 on time (`:elapsed`) 3/2. So durations are (+ 1.5 #_form-elapsed 0.5 1) which equals three. Therefore index 2 will fall on cp."
+    (let [ref-ratio 1
+          ratio 1/2
+          cp 2
+          durs [1 2 3]
+          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+      (is (= {:ratio 1/2,
+              :elapsed 3/2,
+              :index 0,
+              :cp 2,
+              :cp-at 3,
+              :echoic-distance 3/2,
+              :echoic-distance-event-qty 3N}
+             (find-first-event-using-cp ratio durs cp cp-elapsed-at :loop? false))))))
+
 (comment
   "IMPORTANT TEST.
    It will make clear how the system works at the present time. Please read the
    `testing` descriptions. The property based tests that follow will also test
    the same things (with other data) but in a less explicit manner.")
 (deftest temporal-canon-sequencing-data-using-get-event-at-and-find-first-event-using-cp
+  #_"Non generative, human readable tests"
   (let [durs [2 2 4 1]
         reference-ratio 1
         subordinate-ratio 2/3
@@ -102,7 +164,7 @@
   The function `get-next-events` is used as means for the demonstration,
   see comment with example use."
 
-  [reference-ratio ratio-2 durs cp]
+  [reference-ratio ratio-2 durs cp loop?]
   (let [cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
         main-voice (merge {:ratio reference-ratio}
                           (find-first-event-using-cp
@@ -115,7 +177,8 @@
                                 ratio-2
                                 durs
                                 cp
-                                cp-elapsed-at))
+                                cp-elapsed-at
+                                :loop? loop?))
         ;; mv = main-voice
         ;; sv = secondary-voice
         mv-event (last (get-next-n-events durs main-voice cp))
@@ -164,11 +227,9 @@
       ratio-2 (gen-ratio)
       durs (gen-durs)
       cp (gen-cp)]
-     (test-existence-of-cp-with-on-the-same-duration
-      ratio-1
-      ratio-2
-      durs
-      cp))))
+     (test-existence-of-cp-on-the-same-duration-for-different-voices
+      ratio-1 ratio-2 durs cp
+      #_:loop? (rand-nth [true false])))))
 
 
 (defspec prop-echoic-distance-event-qty 100

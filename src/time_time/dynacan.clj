@@ -46,22 +46,24 @@
   be found by going backwards in time starting from the cp.
   Th cp is at some point of the durs vector (cycle) so we need to start from
   there and go back to the begining of the vector.
-  First comes a partial cycle (pcy-end), which may be from 0 to the nth index of
-  the nth length durs vector.
+  First comes a partial cycle (`pcy-end`), which may be from 0 to the nth index of the `durs` vector.
   Then there may be any number of full cycles. We do not need to add each of the
   durs from the cycles but rather we add the whole durs block (cyn..cy0, written
-  as cyn->cy0).
-  Finally there may be another partial cycle (pcy-start) --conceptually equal to
-  pcy-end.
-  cyn->cn0 and pcy-start will be 0 if the cp is close enough (i.e. within the
-  reach of pcy-end.
+  as `cyn->cy0`).
+  Finally there may be another partial cycle (`pcy-start`) --conceptually equal to
+  `pcy-end`.
+  `cyn->cn0` and `pcy-start` will be 0 if the cp is close enough (i.e. within the
+  reach of `pcy-end`.
   Thus we can calculate the first event position as follows:
   (- cp-elapsed-at (+ pcy-end cyn->cy0 pcy-start))
   The difference of cp-elapsed-at with the previous result can not be smaller
   than 0.
   The value that is returned is the dur `index` and the `elapsed-at` of the first
-  event."
-  [ratio durs cp cp-elapsed-at]
+  event.
+
+  Options:
+  `:loop?` Whether the sequence can start at a point prior to `index` 0, which means that the sequence needs to loop to reach the `cp`"
+  [ratio durs cp cp-elapsed-at & {:keys [loop?] :or {loop? true}}]
   (let [durs-size (count durs)
         pcy-end (get-partial-cycle-durs
                  0
@@ -78,12 +80,13 @@
                    durs
                    durs-size
                    cp-elapsed-at)
-        index (if (pcy-end :completed-all)
-                (pcy-end :index)
-                (pcy-start :index))
-        elapsed-at (if (pcy-end :completed-all)
-                     (pcy-end :elapsed-at)
-                     (pcy-start :elapsed-at))]
+        loop-cycle? (and loop? (false? (pcy-end :completed-all)) )
+        index (if loop-cycle?
+                (pcy-start :index)
+                (pcy-end :index))
+        elapsed-at (if loop-cycle?
+                     (pcy-start :elapsed-at)
+                     (pcy-end :elapsed-at))]
     {:ratio ratio
      :elapsed elapsed-at
      :index (mod index durs-size)
@@ -97,6 +100,71 @@
                                   (* durs-size cyn->cy0)
                                   ;; start index of last cycle
                                   (- durs-size (pcy-start :index)))}))
+
+(testing "Because ratio < ref-ratio and `:loop?` is `false`, the voice would start at `index` 0 on time (`:elapsed`) 3/2. So durations are (+ 1.5 #_form-elapsed 0.5 1) which equals three. Therefore index 2 will fall on cp."
+  (let [ref-ratio 1
+        ratio 1/2
+        cp 2
+        durs [1 2 3]
+        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+    (is (= {:ratio 1/2,
+            :elapsed 3/2,
+            :index 0,
+            :cp 2,
+            :cp-at 3,
+            :echoic-distance 3/2,
+            :echoic-distance-event-qty 3N}
+           (find-first-event-using-cp ratio durs cp cp-elapsed-at :loop? false)))))
+
+(testing "Ratio is twice as slow so the voice would start `index` is 1 with elapsed 0, so`cp` ocurrs on index 2."
+    (let [cp 2
+          ref-ratio 1
+          ratio 2
+          durs [1 1 1]
+          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+      (is (= {:ratio 2,
+              :elapsed 0,
+              :index 1,
+              :cp 2,
+              :cp-at 2,
+              :echoic-distance 2,
+              :echoic-distance-event-qty 2}
+             (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+
+(testing "Voice would start at index 2 directly on cp"
+  (let [ref-ratio 1
+        ratio 2
+        cp 2
+        durs [1 2 3]
+        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+    (is (= {:ratio 2,
+            :elapsed 3,
+            :index 2,
+            :cp 2,
+            :cp-at 3,
+            :echoic-distance 0,
+            :echoic-distance-event-qty 2}
+           (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+
+(testing "Voice would start at `index` 2 on time (`:elapsed`) 0. So durations are (+ 1 1.5 0.5 1) which equals three. So index 2 will fall on cp."
+  (let [ref-ratio 1
+        ratio 1/2
+        cp 2
+        durs [1 2 3]
+        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
+    (is (= {:ratio 1/2,
+            :elapsed 0N,
+            :index 2,
+            :cp 2,
+            :cp-at 3,
+            :echoic-distance 3N,
+            :echoic-distance-event-qty 3N}
+           (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
+
+(let [cp 2
+      durs [1 1 1]
+      cp-elapsed-at (:elapsed (get-event-at 1 durs cp))]
+  (find-first-event-using-cp 1/2 durs cp cp-elapsed-at))
 
 (defn get-next-event [voice durs]
   (merge voice {:index (inc (:index voice))
@@ -198,31 +266,31 @@
 
 
 
+(comment
 
+  (require '[clojure.spec.alpha :as s]
+           '[clojure.spec.test.alpha :as stest]
+           '[clojure.spec.gen.alpha :as gen]
+           )
 
-(require '[clojure.spec.alpha :as s]
-         '[clojure.spec.test.alpha :as stest]
-         '[clojure.spec.gen.alpha :as gen]
-         )
+  (s/def ::ratio (s/and rational? #(> % 0)))
+  (s/def ::durs (s/coll-of ::ratio))
+  (s/def ::index (s/and int? #(> % 0)))
+  (s/def ::elapsed-at ::ratio)
+  (s/def ::elapsed ::ratio)
+  (s/def ::cp ::index)
+  (gen/generate (s/gen ::ratio))
 
-(s/def ::ratio (s/and rational? #(> % 0)))
-(s/def ::durs (s/coll-of ::ratio))
-(s/def ::index (s/and int? #(> % 0)))
-(s/def ::elapsed-at ::ratio)
-(s/def ::elapsed ::ratio)
-(s/def ::cp ::index)
-(gen/generate (s/gen ::ratio))
+  (s/fdef find-first-event-using-cp
+    :args (s/cat :ratio ::ratio
+                 :durs ::durs
+                 :cp ::cp
+                 :cp-elapsed-at ::ratio)
+    :ret (s/keys ::elapsed ::index))
 
-(s/fdef find-first-event-using-cp
-  :args (s/cat :ratio ::ratio
-               :durs ::durs
-               :cp ::cp
-               :cp-elapsed-at ::ratio)
-  :ret (s/keys ::elapsed ::index))
+  (gen/generate (s/gen (s/cat :ratio ::ratio
+                              :durs ::durs
+                              :cp ::cp
+                              :cp-elapsed-at ::ratio)))
 
-(gen/generate (s/gen (s/cat :ratio ::ratio
-                            :durs ::durs
-                            :cp ::cp
-                            :cp-elapsed-at ::ratio)))
-
-(stest/instrument `find-first-event-using-cp)
+  (stest/instrument `find-first-event-using-cp))
