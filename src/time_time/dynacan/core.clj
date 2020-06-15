@@ -1,4 +1,4 @@
-(ns time-time.dynacan)
+(ns time-time.dynacan.core)
 
 ;; given a list of durs and a state current-index, current-elapsed calculate next n events {:dur :elapsed}
 ;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time
@@ -9,20 +9,21 @@
 (defn get-event-at
   "Returns a map with the duration of the event and the time elapsed (0 based)
   at which the event will happen"
-  [ratio durs index]
-  ;; TODO allow start index to be something other than 0, and add initial elapsed
-  (let [durs-size (count durs)
-        modulo (mod index durs-size)
-        completed-cycles (quot index durs-size)
-        last-durs  (subvec durs 0 modulo) ;; completed durs in last cycle
-        last-elapsed (apply + last-durs)  ;; elapsed in last cycle
-        current-dur  (nth durs modulo)
-        elapsed-in-completed (if-not (> completed-cycles 0)
-                               0
-                               (* completed-cycles
-                                  (apply + durs)))]
-    {:current-dur (* ratio current-dur)
-     :elapsed (* ratio (+ elapsed-in-completed last-elapsed))}))
+  ([ratio durs index] (get-event-at ratio durs index 0 0))
+  ([ratio durs index start-index pre-elapsed]
+   ;; TODO allow start index to be something other than 0, and add initial elapsed
+   (let [durs-size (count durs)
+         modulo (mod index durs-size)
+         completed-cycles (quot index durs-size)
+         last-durs  (subvec durs 0 modulo) ;; completed durs in last cycle
+         last-elapsed (apply + last-durs)  ;; elapsed in last cycle
+         current-dur  (nth durs modulo)
+         elapsed-in-completed (if-not (> completed-cycles 0)
+                                0
+                                (* completed-cycles
+                                   (apply + durs)))]
+     {:current-dur (* ratio current-dur)
+      :elapsed (* ratio (+ elapsed-in-completed last-elapsed))})))
 
 ;;;; given a list of durs, a ratio, an event at index cp and a moment in time calculate most inmediate possible event (the one closest to elapsed-at >= 0
 
@@ -63,7 +64,9 @@
 
   Options:
   `:loop?` Whether the sequence can start at a point prior to `index` 0, which means that the sequence needs to loop to reach the `cp`"
-  [ratio durs cp cp-elapsed-at & {:keys [loop?] :or {loop? true}}]
+  [ratio durs cp cp-elapsed-at & {:keys [loop? start-index]
+                                  :or {loop? true
+                                       start-index 0}}]
   (let [durs-size (count durs)
         pcy-end (get-partial-cycle-durs
                  0
@@ -101,70 +104,23 @@
                                   ;; start index of last cycle
                                   (- durs-size (pcy-start :index)))}))
 
-(testing "Because ratio < ref-ratio and `:loop?` is `false`, the voice would start at `index` 0 on time (`:elapsed`) 3/2. So durations are (+ 1.5 #_form-elapsed 0.5 1) which equals three. Therefore index 2 will fall on cp."
+#_(testing "Voice would start at `index` 2 on time (`:elapsed`) 0. So durations are (+ 1 1.5 0.5 1) which equals three. So index 2 will fall on cp."
   (let [ref-ratio 1
         ratio 1/2
         cp 2
         durs [1 2 3]
         cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
-    (is (= {:ratio 1/2,
-            :elapsed 3/2,
-            :index 0,
-            :cp 2,
-            :cp-at 3,
-            :echoic-distance 3/2,
-            :echoic-distance-event-qty 3N}
-           (find-first-event-using-cp ratio durs cp cp-elapsed-at :loop? false)))))
-
-(testing "Ratio is twice as slow so the voice would start `index` is 1 with elapsed 0, so`cp` ocurrs on index 2."
-    (let [cp 2
-          ref-ratio 1
-          ratio 2
-          durs [1 1 1]
-          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
-      (is (= {:ratio 2,
-              :elapsed 0,
-              :index 1,
+    #_(is (= {:ratio 1/2,
+              :elapsed 0N,
+              :index 2,
               :cp 2,
-              :cp-at 2,
-              :echoic-distance 2,
-              :echoic-distance-event-qty 2}
-             (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
-
-(testing "Voice would start at index 2 directly on cp"
-  (let [ref-ratio 1
-        ratio 2
-        cp 2
-        durs [1 2 3]
-        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
-    (is (= {:ratio 2,
-            :elapsed 3,
-            :index 2,
-            :cp 2,
-            :cp-at 3,
-            :echoic-distance 0,
-            :echoic-distance-event-qty 2}
-           (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
-
-(testing "Voice would start at `index` 2 on time (`:elapsed`) 0. So durations are (+ 1 1.5 0.5 1) which equals three. So index 2 will fall on cp."
-  (let [ref-ratio 1
-        ratio 1/2
-        cp 2
-        durs [1 2 3]
-        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
-    (is (= {:ratio 1/2,
-            :elapsed 0N,
-            :index 2,
-            :cp 2,
-            :cp-at 3,
-            :echoic-distance 3N,
-            :echoic-distance-event-qty 3N}
-           (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
-
-(let [cp 2
-      durs [1 1 1]
-      cp-elapsed-at (:elapsed (get-event-at 1 durs cp))]
-  (find-first-event-using-cp 1/2 durs cp cp-elapsed-at))
+              :cp-at 3,
+              :echoic-distance 3N,
+              :echoic-distance-event-qty 3N}))
+    [(find-first-event-using-cp ratio durs cp cp-elapsed-at)
+     (find-first-event-using-cp ratio durs cp cp-elapsed-at
+                                :start-index 1
+                                )]))
 
 (defn get-next-event [voice durs]
   (merge voice {:index (inc (:index voice))
@@ -221,10 +177,9 @@
 
 
 
+(comment
 
-
-
-
+)
 
 
 ;;;;;;;;
@@ -249,7 +204,8 @@
                                            subordinate-ratio
                                            durs
                                            cp
-                                           cp-elapsed-at))
+                                           cp-elapsed-at
+                                           :loop? false))
         log-fn (fn [id]
                  (fn [{:keys [data]}] (log/info id (data :index) (- (now) now*))))]
     (do
@@ -258,8 +214,7 @@
                       :ratio subordinate-ratio
                       :start-time now*
                       :start-index (:index subordinate-first-event)
-                      :elapsed (:elapsed subordinate-first-event)
-                      :loop? true))))
+                      :elapsed (:elapsed subordinate-first-event)))))
 
   (swap! v1' #(assoc % :loop? false))
   (swap! v2' #(assoc % :playing? false)))

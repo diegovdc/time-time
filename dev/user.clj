@@ -1,8 +1,9 @@
 (ns user
   (:require
    [clojure.pprint]
-   [clojure.tools.namespace.repl :refer [set-refresh-dirs refresh refresh-all]]))
-
+   [clojure.tools.namespace.repl :refer [set-refresh-dirs refresh refresh-all]]
+   [taoensso.timbre :as log]))
+(log/set-level! :info)
 (set-refresh-dirs "src" "test")
 (defn reset [] (refresh))
 (defn make-spy [printer]
@@ -52,3 +53,7 @@
 (defn connect []
   (eval '(do (require '[overtone.core :as o])
              (o/boot-external-server))))
+
+(defn test-sound []
+  (eval '(do (require '[overtone.core :refer :all])
+             (demo (sin-osc)))))

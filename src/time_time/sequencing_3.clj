@@ -11,23 +11,28 @@
   "Gets a config and returns a `voice-atom` that will start playing,
   if `playing?` is true (default)"
   [durs on-event &
-   {:keys [ratio tempo loop? start-index start-time elapsed playing?]
+   {:keys [ratio tempo loop? start-index start-time elapsed playing?
+           before-update extra-data]
     :or {ratio 1
          tempo 60
          loop? false
          start-index 0
          start-time (now)
          elapsed 0
-         playing? true}}]
-  (let [voice (atom {:durs durs
-                     :on-event on-event
-                     :ratio ratio
-                     :tempo tempo
-                     :loop? loop?
-                     :index start-index
-                     :started-at start-time
-                     :elapsed (dur->ms elapsed tempo)
-                     :playing? playing?})]
+         playing? true
+         before-update identity ;; receives the voice data before it is used to `reset!` the `voice-atom`
+         extra-data {}}}]
+  (let [voice (atom (merge extra-data
+                           {:durs durs
+                            :on-event on-event
+                            :ratio ratio
+                            :tempo tempo
+                            :loop? loop?
+                            :index start-index
+                            :started-at start-time
+                            :elapsed (dur->ms elapsed tempo)
+                            :playing? playing?
+                            :before-update before-update}))]
     (schedule! voice)
     voice))
 
@@ -56,15 +61,25 @@
 (defn schedule! [voice-atom]
   (let [{:keys [started-at elapsed] :as v} @voice-atom
         event-schedule (+ started-at elapsed)
-        {:keys [on-event] :as voice-update} (calculate-next-voice-state v)
+        {:keys [on-event before-update]
+         :or {before-update identity}
+         :as voice-update} (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom]
                       (when (:playing? v*)
                         (try (do
-                               (reset! voice-atom voice-update) ;; NOTE above the on-event function in case the atom is updated by that function... this might be less performant, tho... maybe create an after-event function for updates?
                                (when (play-event? v*)
                                  (on-event {:data v*
                                             :voice voice-atom}))
+                               (swap! voice-atom
+                                      (fn [data]
+                                        (-> data
+                                            (merge
+                                             (select-keys voice-update
+                                                          [:index
+                                                           :elapsed
+                                                           :current-event]))
+                                            before-update)))
                                (when (schedule? voice-update)
                                  (schedule! voice-atom)))
                              (catch Exception e (println e))))))]
@@ -80,7 +95,6 @@
                     :elapsed 0
                     :ratio 1})
   (def v (atom (assoc voice-state
-                      :ratio 1/2
                       :on-event (fn [{:keys [data voice]}] (println data)))))
 
   (do

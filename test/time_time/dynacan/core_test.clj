@@ -1,4 +1,4 @@
-(ns time-time.dynacan-test
+(ns time-time.dynacan.core-test
   (:require [clojure.pprint :refer [pprint]]
             [clojure.core.async :as async]
             [clojure.spec.gen.alpha :as gen]
