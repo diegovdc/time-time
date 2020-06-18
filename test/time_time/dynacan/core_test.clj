@@ -282,38 +282,3 @@
                            (first-event
                             :echoic-distance-event-qty)))]
        (= 0 (cp-event :echoic-distance))))))
-
-
-
-
-
-(comment
-  ;; WIP, test for the player...
-  (deftest )
-
-
-
-  (defn <!!?
-    "Reads from chan synchronously, waiting for a given maximum of milliseconds.
-  If the value does not come in during that period, returns :timed-out. If
-  milliseconds is not given, a default of 1000 is used."
-    ([chan]
-     (<!!? chan 1000))
-    ([chan milliseconds]
-     (let [timeout (async/timeout milliseconds)
-           [value port] (async/alts!! [chan timeout])]
-       (if (= chan port)
-         value
-         :timed-out))))
-
-  (def result-chan (async/chan ))
-
-  (is (user/spy :res (= 42 (<!!? result-chan 2000))))
-  (async/>!! result-chan 42)
-  (async/take 10 result-chan)
-
-
-  (async/go-loop [seconds 1]
-    (async/<! (async/timeout 1000))
-    (print "waited" seconds "seconds")
-    (when (< seconds 5) (recur (inc seconds)))))
