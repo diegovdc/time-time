@@ -48,39 +48,42 @@
 (defn play-event?
   "Based on the index, determine if a voice has an event that should be
   played."
-  [{:keys [index durs loop?]}]
+  [index durs loop?]
   (or (< index (count durs)) loop?))
 
 
 (defn schedule?
   "Based on the index, determine if a voice has an event that should be
   scheduled."
-  [voice]
-  (play-event? voice))
+  [index durs loop?]
+  (play-event? index durs loop?))
 
 (defn schedule! [voice-atom]
   (let [{:keys [started-at elapsed] :as v} @voice-atom
         event-schedule (+ started-at elapsed)
-        {:keys [on-event before-update]
-         :or {before-update identity}
-         :as voice-update} (calculate-next-voice-state v)
+        voice-update (calculate-next-voice-state v)
         on-event* (fn []
-                    (let [v* @voice-atom]
+                    (let [v* @voice-atom
+                          {:keys [on-event before-update
+                                  index durs loop?] ;; TODO move on
+                           :or {before-update identity}} v]
                       (when (:playing? v*)
                         (try (do
-                               (when (play-event? v*)
-                                 (on-event {:data v*
-                                            :voice voice-atom}))
+                               (when (play-event? index durs loop?)
+                                 (on-event {:data v* :voice voice-atom}))
                                (swap! voice-atom
                                       (fn [data]
                                         (-> data
                                             (merge
+                                             ;; TODO calculate-next-voice-state should only return the fields below
                                              (select-keys voice-update
                                                           [:index
                                                            :elapsed
                                                            :current-event]))
                                             before-update)))
-                               (when (schedule? voice-update)
+                               (when (schedule? (voice-update :index)
+                                                (voice-update :durs)
+                                                loop?)
                                  (schedule! voice-atom)))
                              (catch Exception e (println e))))))]
     (apply-at event-schedule on-event*)))

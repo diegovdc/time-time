@@ -1,11 +1,10 @@
 (ns time-time.dynacan.core-test
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.core.async :as async]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
-            [time-time.dynacan
+            [time-time.dynacan.core
              :refer
              [find-first-event-using-cp
               get-event-at
