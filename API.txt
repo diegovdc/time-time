@@ -1,0 +1,91 @@
+;; este es un comentario en cloullur
+
+1 puede tocar un segmento de un """"canon""""
+2 cualquier voz puede ser la voz de referencia
+3 Se pueden filtrar, por cada voz, cuáles eventos se ejecutan y cuáles no
+4 Efectos temporales 
+5 las voces son independientes del sonido
+6 varias voces pueden tener una misma acción
+7 cada voz puede tener una acción distinta
+8 pueden quitarse y agregarse voces sin ningún problema
+9 múltiples puntos de convergencia: Una voz como pivote o relaciones entre voces definidas por el tocador
+
+canon 1 voz 2 indice 3  cp con
+canon 2 voz 5 indice 7
+
+(len inf)   
+r 2:3:5
+ref 2
+durs [1]
+cp [0 {2 4}]
+[0 1 2 3 4 5 6 7] 
+[0  1  2  3  4  5  6  7] 
+[  2    3    4      5     6     7]             
+1. ventana:
+   1 2
+    1
+
+r 2:3  
+ref 2 
+frame 1 2 
+
+1. ventana con offset
+   o 2
+    1
+r 2:3  
+ref 2 
+frame 1.1 2.7   
+
+durs [1] 1:1:2:1
+
+C1 =
+// durs
+durs [1 2]
+period 2  // or tempo
+// canstruct: ratio/cpvoice/cpindex/ref
+{2 0 0 self 
+ 3 0 4 self
+ 4 1 3 self}
+// frame: ref/ratio/startindex/endindex
+frame self 1 100 110 
+
+C2 = 
+{2 0 0 self
+ 3 1 4 C1
+ 4 1 3 self}
+
+
+player C1
+2 xo x: bd o: hh // (xo "xooooxox" bd hh)// index -> modulo -> x||o 
+3 xoo x: bd :o hh
+$ every 3
+2 xo x:bd bd o: hh
+
+
+
+C2
+[2 3 4] 5 6 7 8
+ [5   7]  8   9
+
+
+tempo 2 dur: 1 2 2:3:5 
+  
+frame 
+
+
+   1 2 3 4 5       1 2 3 4 5
+                 1 2 3 4 5
+1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+1  2  3  4  5   1  2  3  4  5
+
+calculos temporales -> secuenciador de voz -> api
+                                           -> parser
+calculos temporales -> secuenciador de voz -> secuenciador de voces -> api
+                                                                    -> parser
+                                                                    -> api
+                                           -> secuenciador de voces -> api
+                                                                    -> parser
+                                                                    -> api
+                    -> secuenciador de voz -> secuenciador de voces -> api
+                                                                    -> parser
+                                                                    -> api
