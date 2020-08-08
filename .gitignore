@@ -13,3 +13,5 @@ resources/
 **/**/#*
 **/**/.#*
 /native
+profiles.clj
+.calva/
