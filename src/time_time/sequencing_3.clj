@@ -12,7 +12,7 @@
   if `playing?` is true (default)"
   [durs on-event &
    {:keys [ratio tempo loop? start-index start-time elapsed playing?
-           before-update extra-data]
+           before-update on-schedule extra-data]
     :or {ratio 1
          tempo 60
          loop? false
@@ -21,6 +21,7 @@
          elapsed 0
          playing? true
          before-update identity ;; receives the voice data before it is used to `reset!` the `voice-atom`
+         on-schedule (fn [voice event-schedule] event-schedule)
          extra-data {}}}]
   (let [voice (atom (merge extra-data
                            {:durs durs
@@ -32,7 +33,8 @@
                             :started-at start-time
                             :elapsed (dur->ms elapsed tempo)
                             :playing? playing?
-                            :before-update before-update}))]
+                            :before-update before-update
+                            :on-schedule on-schedule}))]
     (schedule! voice)
     voice))
 
@@ -42,7 +44,7 @@
         event-dur (dur->ms dur tempo)
         updated-state {:index (inc index)
                        :elapsed (+ elapsed event-dur)
-                       :current-event {:dur-ms event-dur :dur dur}}]
+                       :current-event {:dur-ms event-dur :dur dur :index index}}]
     (merge voice updated-state)))
 
 (defn play-event?
@@ -69,8 +71,10 @@
       before-update))
 
 (defn schedule! [voice-atom]
-  (let [{:keys [started-at elapsed] :as v} @voice-atom
-        event-schedule (+ started-at elapsed)
+  (let [{:keys [started-at elapsed on-schedule]
+         :or {on-schedule (fn [voice event-schedule] event-schedule)}
+         :as v} @voice-atom
+        event-schedule (on-schedule v (+ started-at elapsed))
         voice-update (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
@@ -79,6 +83,7 @@
                       (when (:playing? v*)
                         (try (do
                                (when (play-event? index durs loop?)
+                                 ;; TODO current-event should always be present
                                  (on-event {:data v* :voice voice-atom}))
                                (swap! voice-atom (partial update-voice
                                                           before-update
@@ -92,22 +97,31 @@
 
 
 (comment
-  (def voice-state {:durs [1 2 1]
+  (def voice-state {:durs [1]
                     :index 0
                     :tempo 60
-                    :loop? false
+                    :loop? true
                     :started-at 0
                     :elapsed 0
                     :ratio 1})
 
-    (def v (atom (assoc voice-state :on-event (fn [{:keys [data voice]}] (println data)))))
+  (def v (atom (assoc voice-state :on-event
+                      (fn [{:keys [data voice]}]
+                        (println data)))))
+
   (do
     (swap! v assoc :started-at (+ 1000 (now)) :playing? true)
     (schedule! v))
 
   (swap! v assoc :playing? false)
 
-  (def v1 (play! [1 2] (fn [_] (println "hola"))
+  (def v1 (play! [1] (fn [_] (println "hola")
+                       (swap! v1 assoc :durs [(inc (rand 3))]))
+                 :loop? true
                  :ratio 1/4
                  :start-time (+ 2000 (now))))
-  (swap! v1 assoc :playing? false))
+  (swap! v1 assoc :playing? false)
+
+  (swap! v1 assoc :on-event
+         (fn [_] (println "holassssss")
+           (println (:durs (swap! v1 assoc :durs [(inc (rand 3))]))))))
