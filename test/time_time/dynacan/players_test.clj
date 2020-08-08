@@ -4,8 +4,12 @@
    [time-time.dynacan.players :refer [std!]]
    [time-time.utils.async :refer [async-events-tester]]
    [time-time.utils.core :refer [close-to get-time-interval]]
+   [time-time.player :as p :refer [player]]
    [clojure.test :refer [testing deftest is]]
-   [clojure.core.async :as a]))
+   [clojure.core.async :as a]
+   [taoensso.timbre :as log]))
+
+(declare get-cp-events)
 
 (deftest std!-test
   (let [end-of-canon (fn [ev _]
@@ -64,4 +68,46 @@
                    (->> result
                         (filter #(-> % :index (= 0)))
                         (map (juxt :start-delay :total-dur :rest))
-                        (map (partial apply +)))))))))
+                        (map (partial apply +)))))))
+
+    (testing "Voices loop correctly, respecting the rest interval"
+      (let [{:keys [event-chan result-chan]} (async-events-tester
+                                              (fn [ev _]
+                                                (not= ((juxt :voice :index) ev) [0 30])))
+            durs (->> (range (+ 2 (rand-int 5)))
+                      (mapv #(+ % (rand-int 10))))
+            voices (->> (range (+ 2 (rand-int 5)))
+                        (mapv #(+ 1 % (rand-int 100))))
+            cp (rand-int (count durs))
+            canon (std! durs voices cp
+                        (fn [{:keys [data]}] (a/>!! event-chan (assoc data :interval (- (now) (:started-at data)))))
+                        :tempo 6000
+                        :loop? true)
+            result (a/<!! result-chan)]
+        (p/stop! canon)
+        (is (->> result
+                 (group-by :voice)
+                 (mapv (comp
+                       (partial get-cp-events durs cp)
+                       (partial map :interval)
+                       val))
+                 (apply mapv (fn [& args]
+                               (let [min* (apply min args)
+                                     max* (apply max args)
+                                     avg (/ (+ min* max*) 2)]
+                                 (close-to avg
+                                           5
+                                           max*))))
+                 (every? true?)))))))
+
+
+(defn get-cp-events [durs cp values]
+  (let [len (count durs)]
+    (->> values
+         (map-indexed vector)
+         (filter #(= cp (mod (first %) len)))
+         (map second))))
+
+(deftest get-cp-events-test
+  (is (= (get-cp-events (range 4) 2 (range 20))
+         '(2 6 10 14 18))))

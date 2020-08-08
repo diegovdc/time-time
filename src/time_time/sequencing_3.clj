@@ -44,7 +44,7 @@
         event-dur (dur->ms dur tempo)
         updated-state {:index (inc index)
                        :elapsed (+ elapsed event-dur)
-                       :current-event {:dur-ms event-dur :dur dur :index index}}]
+                       :current-event {:dur-ms event-dur :dur dur}}]
     (merge voice updated-state)))
 
 (defn play-event?
@@ -75,7 +75,7 @@
          :or {on-schedule (fn [voice event-schedule] event-schedule)}
          :as v} @voice-atom
         event-schedule (on-schedule v (+ started-at elapsed))
-        voice-update (calculate-next-voice-state v)
+        next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
                           {:keys [on-event before-update index durs loop?]
@@ -87,9 +87,9 @@
                                  (on-event {:data v* :voice voice-atom}))
                                (swap! voice-atom (partial update-voice
                                                           before-update
-                                                          voice-update))
-                               (when (schedule? (voice-update :index)
-                                                (voice-update :durs)
+                                                          next-voice-state))
+                               (when (schedule? (next-voice-state :index)
+                                                (next-voice-state :durs)
                                                 loop?)
                                  (schedule! voice-atom)))
                              (catch Exception e (println e))))))]
