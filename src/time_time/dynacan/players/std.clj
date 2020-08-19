@@ -1,6 +1,7 @@
-(ns time-time.dynacan.players
+(ns time-time.dynacan.players.std
   (:require
    [time-time.dynacan.core :refer [get-event-at find-first-event-using-cp]]
+   [clojure.spec.alpha :as spec]
    [time-time.sequencing-3 :as s]
    [overtone.music.time :refer [now]]
    [time-time.player :as p :refer [player]]
@@ -16,13 +17,26 @@
                   (swap! voice-atom assoc :playing? false)))
   (data [this] canon-atoms))
 
-(declare +extra-data before-update reciprocal)
+(declare +extra-data before-update reciprocal std-2!- std!-)
 
-(defn std! [durs ratios cp on-event
-            & {:keys [start-time loop? tempo]
-               :or {start-time 0
-                    loop? false
-                    tempo 60}}]
+(spec/def ::dur (spec/and number? #(> % 0)))
+(spec/def ::durs (spec/and (spec/coll-of ::dur) (comp not empty?)))
+(spec/def ::durs-vec (spec/coll-of ::durs))
+
+(spec/valid? ::durs-vec [])
+
+(defn std!
+  ([durs ratios cp on-event] (std! durs ratios cp on-event {}))
+  ([durs ratios cp on-event & {:as opts}]
+   (let [opts* (merge {:start-time 0 :loop? false :tempo 60} opts)]
+     (cond
+       (spec/valid? ::durs-vec durs) (std-2!-  durs ratios cp on-event opts*)
+       (spec/valid? ::durs durs) (std!- durs ratios cp on-event opts*)
+       :default (throw (ex-info (spec/explain-str ::durs durs) {:durs durs}))))))
+
+
+(defn std!- [durs ratios cp on-event {:keys [start-time loop? tempo]}]
+  (println start-time loop? tempo)
   (let [ratios (->> ratios (map reciprocal) (sort-by identity >))
         ref-ratio (first ratios)
         cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))
@@ -70,11 +84,7 @@
   [{:keys [elapsed start-delay tempo] :as data}
    rest* ref-ratio]
   (if (and (loop-restart? data) (:loop? data))
-    (assoc data :elapsed
-           (+ elapsed
-              (dur->ms (+ rest*
-                          start-delay)
-                       tempo)))
+    (assoc data :elapsed (+ elapsed (dur->ms (+ rest* start-delay) tempo)))
     data))
 
 (defn +extra-data
@@ -97,6 +107,7 @@
 
 
 (comment
+  (require '[taoensso.timbre :as log])
   (defn cp? [{:keys [cp index durs]}]
     (= cp (mod index (count durs))))
   (def canon

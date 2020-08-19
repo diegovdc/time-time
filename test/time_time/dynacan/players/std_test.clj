@@ -1,13 +1,12 @@
-(ns time-time.dynacan.players-test
-  (:require
-   [overtone.core :refer [now]]
-   [time-time.dynacan.players :refer [std!]]
-   [time-time.utils.async :refer [async-events-tester]]
-   [time-time.utils.core :refer [close-to get-time-interval]]
-   [time-time.player :as p :refer [player]]
-   [clojure.test :refer [testing deftest is]]
-   [clojure.core.async :as a]
-   [taoensso.timbre :as log]))
+(ns time-time.dynacan.players.std-test
+  (:require [clojure.core.async :as a]
+            [clojure.test :refer [deftest is testing]]
+            [overtone.core :refer [now]]
+            [taoensso.timbre :as log]
+            [time-time.dynacan.players.std :refer [std!]]
+            [time-time.player :as p :refer [player]]
+            [time-time.utils.async :refer [async-events-tester]]
+            [time-time.utils.core :refer [close-to get-time-interval]]))
 
 (declare get-cp-events)
 
@@ -85,20 +84,18 @@
                         :loop? true)
             result (a/<!! result-chan)]
         (p/stop! canon)
-        (is (->> result
-                 (group-by :voice)
-                 (mapv (comp
-                       (partial get-cp-events durs cp)
-                       (partial map :interval)
-                       val))
-                 (apply mapv (fn [& args]
-                               (let [min* (apply min args)
-                                     max* (apply max args)
-                                     avg (/ (+ min* max*) 2)]
-                                 (close-to avg
-                                           5
-                                           max*))))
-                 (every? true?)))))))
+        (is (every? true?
+                    (->> result
+                         (group-by :voice)
+                         (mapv (comp
+                                (partial get-cp-events durs cp)
+                                (partial map :interval)
+                                val))
+                         (apply mapv (fn [& args]
+                                       (let [min* (apply min args)
+                                             max* (apply max args)
+                                             avg (/ (+ min* max*) 2)]
+                                         (close-to avg 5 max*)))))))))))
 
 
 (defn get-cp-events [durs cp values]

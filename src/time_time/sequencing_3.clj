@@ -1,9 +1,11 @@
 (ns time-time.sequencing-3
   "`play!` is the main function of this ns, `schedule!` is a lower level function, that might be helpful.
-  `:elapsed` is the amount of time elapsed by the end of the `:current-event`"
+  `:elapsed` is the amount of time elapsed by the end of the `:current-event`
+    and it's measured in `milliseconds`"
   (:require
    [time-time.standard :refer [dur->ms wrap-at]]
-   [overtone.music.time :refer [apply-at now]]))
+   [overtone.music.time :refer [apply-at now]]
+   [taoensso.timbre :as log]))
 
 
 (declare schedule!)
@@ -71,10 +73,8 @@
       before-update))
 
 (defn schedule! [voice-atom]
-  (let [{:keys [started-at elapsed on-schedule]
-         :or {on-schedule (fn [voice event-schedule] event-schedule)}
-         :as v} @voice-atom
-        event-schedule (on-schedule v (+ started-at elapsed))
+  (let [{:keys [started-at elapsed] :as v} @voice-atom
+        event-schedule (+ started-at elapsed)
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
@@ -92,7 +92,7 @@
                                                 (next-voice-state :durs)
                                                 loop?)
                                  (schedule! voice-atom)))
-                             (catch Exception e (println e))))))]
+                             (catch Exception e (log/error e))))))]
     (apply-at event-schedule on-event*)))
 
 
