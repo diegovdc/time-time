@@ -36,7 +36,6 @@
 
 
 (defn std!- [durs ratios cp on-event {:keys [start-time loop? tempo]}]
-  (println start-time loop? tempo)
   (let [ratios (->> ratios (map reciprocal) (sort-by identity >))
         ref-ratio (first ratios)
         cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))

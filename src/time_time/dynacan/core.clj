@@ -1,15 +1,16 @@
 (ns time-time.dynacan.core
   (:require [clojure.spec.alpha :as spec]
-            [time-time.utils.core :refer [rotate]]
-            [time-time.sequencing-3 :as s]
-            [clojure.spec.gen.alpha :as gen]))
+            [time-time.utils.core :refer [rotate]]))
 
-;; given a list of durs and a state current-index, current-elapsed calculate next n events {:dur :elapsed}
-;; given the state of voice v1 calculate a cp for voice v2 and the first event after current time
+(spec/def ::index int?)
+(spec/def ::ratio rational?)
+(spec/def ::elapsed number?)
+(spec/def ::echoic-distance number?)
+(spec/def ::echoic-distance-event-qty int?)
+(spec/def ::voice (spec/keys :req-un [::index ::ratio ::elapsed]
+                             :opt-un [::echoic-distance-event-qty
+                                      ::echoic-distance]))
 
-
-
-;;;; given a list of durs and a ratio calculate event (elapsed-at) at index i for voice v1
 
 (defn get-event-at
   "Returns a map with the duration of the event and the time elapsed (0 based)
@@ -119,166 +120,46 @@
                 ;; start index of last cycle
                 (- durs-size (pcy-start :index))))}))
 
-  (find-first-event-using-cp 1/2 [1 2 3] 2 3)
-  #_(find-first-event-using-cp 1 [1 1 1] 2 1))
-
-#_(testing "Voice would start at `index` 2 on time (`:elapsed`) 0. So durations are (+ 1 1.5 0.5 1) which equals three. So index 2 will fall on cp."
-    (let [ref-ratio 1
-          ratio 1/2
-          cp 2
-          durs [1 2 3]
-          cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))]
-      #_(is (= {:ratio 1/2,
-                :elapsed 0N,
-                :index 2,
-                :cp 2,
-                :cp-at 3,
-                :echoic-distance 3N,
-                :echoic-distance-event-qty 3N}))
-      [(find-first-event-using-cp ratio durs cp cp-elapsed-at)
-       (find-first-event-using-cp ratio durs cp cp-elapsed-at
-                                  :start-index 1
-                                  )]))
-
-(defn get-next-event [voice durs]
-  (merge voice {:index (inc (:index voice))
-                :dur (* (voice :ratio)
-                        (nth durs (mod (voice :index) (count durs))))
-                :elapsed (+ (get voice :dur 0)
-                            (get voice
-                                 :elapsed
-                                 (:elapsed voice)))}))
-
-
+  (comment (find-first-event-using-cp 1/2 [1 2 3] 2 3)
+           (find-first-event-using-cp 1 [1 1 1] 2 1)))
 
 (defn normalize-dur [{:keys [dur ratio]}]
   (* dur (/ 1 ratio)))
 
+(defn modulo-cp
+    "Finds the `cp` in modulo form for given the
+  `current-index` and the `echoic-distance-event-qty`"
+    [ref-durs ref-current-index echoic-distance-event-qty]
+    (mod (+ ref-current-index echoic-distance-event-qty)
+         (count ref-durs)))
 
-;;;;
+(defn ensure-rel-voice-cp
+    "Makes sure that the relative voice has a definite cp, specially if `rel-voice-cp`
+  is not defined"
+    [current-ref-index ref-durs echoic-distance-qty rel-voice-durs rel-voice-cp]
+    (if (and (= ref-durs rel-voice-durs) (nil? rel-voice-cp))
+      (modulo-cp ref-durs current-ref-index echoic-distance-qty)
+      (or rel-voice-cp echoic-distance-qty)))
 
-(defn get-next-n-events [durs voice n]
-  (loop [n* n
-         index (:index voice)
-         res []]
-    (if (= -1 n*)
-      res
-      (recur (dec n*)
-             (inc index)
-             (conj res
-                   (merge
-                    voice
-                    (let [original-dur (nth durs (mod index (count durs)))
-                          dur (* (voice :ratio) original-dur)
-                          edq (:echoic-distance-event-qty (last res))]
-                      {:durs durs
-                       :index index
-                       :dur dur
-                       :original-dur original-dur
-                       :elapsed (+ (get (last res) :dur 0)
-                                   (get (last res)
-                                        :elapsed
-                                        (:elapsed voice)))
-                       :echoic-distance-event-qty (if edq
-                                                    (dec edq)
-                                                    (:echoic-distance-event-qty voice))
-                       :echoic-distance (if (empty? res)
-                                          (voice :echoic-distance)
-                                          (- (-> res
-                                                 last
-                                                 :echoic-distance)
-                                             (-> res last :dur)))})))))))
-
-
-
-(spec/def ::index int?)
-(spec/def ::ratio rational?)
-(spec/def ::elapsed number?)
-(spec/def ::echoic-distance number?)
-(spec/def ::echoic-distance-event-qty int?)
-(spec/def ::voice (spec/keys :req-un [::index ::ratio ::elapsed]
-                             :opt-un [::echoic-distance-event-qty
-                                      ::echoic-distance]))
-
-(comment
-  ;;test
-  (get-next-n-events
-   [1 1 1 1]
-   {:echoic-distance 4 :elapsed 0 :index 0 :ratio 1 :echoic-distance-event-qty 4}
-   4))
-
-
-
-
-(comment
-
-)
-
-
-;;;;;;;;
-;;Test;;
-;;;;;;;;
-
-(comment
-  (require '[clojure.test :refer [deftest testing is]]))
-
-
-(comment
-  (require '[time-time.sequencing-3 :refer [play!]]
-           '[overtone.music.time :refer [now apply-at]]
-           '[taoensso.timbre :as log])
-  (let [durs [2 2 4 2]
-        reference-ratio 1
-        subordinate-ratio 2/3
-        cp 2
-        cp-elapsed-at (:elapsed (get-event-at reference-ratio durs cp))
-        now* (+ 1000 (now))
-        subordinate-first-event (user/spy (find-first-event-using-cp
-                                           subordinate-ratio
-                                           durs
-                                           cp
-                                           cp-elapsed-at
-                                           :loop? false))
-        log-fn (fn [id]
-                 (fn [{:keys [data]}] (log/info id (data :index) (- (now) now*))))]
-    (do
-      (def v1' (play! durs (log-fn "v1") :ratio reference-ratio :start-time now*))
-      (def v2' (play! durs (log-fn "v2")
-                      :ratio subordinate-ratio
-                      :start-time now*
-                      :start-index (:index subordinate-first-event)
-                      :elapsed (:elapsed subordinate-first-event)))))
-
-  (swap! v1' #(assoc % :loop? false))
-  (swap! v2' #(assoc % :playing? false)))
-
-
-
-(comment
-
-  (require '[clojure.spec.alpha :as spec]
-           '[clojure.spec.test.alpha :as stest]
-           '[clojure.spec.gen.alpha :as gen]
-           )
-
-  (spec/def ::ratio (spec/and rational? #(> % 0)))
-  (spec/def ::durs (spec/coll-of ::ratio))
-  (spec/def ::index (spec/and int? #(> % 0)))
-  (spec/def ::elapsed-at ::ratio)
-  (spec/def ::elapsed ::ratio)
-  (spec/def ::cp ::index)
-  (gen/generate (spec/gen ::ratio))
-  (gen/generate (spec/gen ::voice))
-  (s/fdef find-first-event-using-cp
-    :args (s/cat :ratio ::ratio
-                 :durs ::durs
-                 :cp ::cp
-                 :cp-elapsed-at ::ratio)
-    :ret (s/keys ::elapsed ::index))
-
-  (gen/generate (s/gen (s/cat :ratio ::ratio
-                              :durs ::durs
-                              :cp ::cp
-                              :cp-elapsed-at ::ratio)))
-
-  (stest/instrument `find-first-event-using-cp))
+(defn find-relative-voice-first-event
+  "Calculates the first event at which the new voice will start in order for it
+  to converge at `cp`.
+  NOTE: It is assumed that the `ref-voice` will provide a current index which
+  should reflect it's actual state (i.e. it may come from an atom or some sort of state)
+  NOTE: `cp` may be `nil` and then `ensure-rel-voice-cp` will find a default value."
+  [echoic-distance-event-qty
+   ref-voice
+   {:keys [durs cp ratio loop?] :or {loop? true} :as rel-voice}]
+  (let [current-ref-index (:index ref-voice)
+        ref-durs (:durs ref-voice)
+        rel-voice-cp (ensure-rel-voice-cp current-ref-index ref-durs echoic-distance-event-qty durs cp)
+        ref-start-index (mod current-ref-index (count ref-durs))
+        cp-event (get-event-at (:ratio ref-voice)
+                               ref-durs
+                               echoic-distance-event-qty
+                               ref-start-index)]
+    (find-first-event-using-cp ratio
+                               durs
+                               rel-voice-cp
+                               (:elapsed cp-event)
+                               :loop? loop?)))
