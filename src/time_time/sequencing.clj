@@ -4,6 +4,7 @@
 (defn sequencer- [nome sequence* on-event state]
   (let [{:keys [start-at index repeat]} @state
         val* (first sequence*)]
+    ;; FIXME `at` does not seem to do anything useful, see source
     (at (nome (+ start-at (:elapsed val*)))
         (on-event val* index)
         (if-not (:remainder? val*)

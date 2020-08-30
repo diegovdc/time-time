@@ -74,13 +74,14 @@
 
 (defn schedule! [voice-atom]
   (let [{:keys [started-at elapsed] :as v} @voice-atom
-        event-schedule (+ started-at elapsed)
+        event-schedule (log/spy (+ started-at elapsed))
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
                           {:keys [on-event before-update index durs loop?]
                            :or {before-update identity}} v]
                       (when (:playing? v*)
+                        (log/debug "About to play event")
                         (try (do
                                (when (play-event? index durs loop?)
                                  ;; TODO current-event should always be present
@@ -95,6 +96,8 @@
                              (catch Exception e (log/error e))))))]
     (apply-at event-schedule on-event*)))
 
+(comment
+  (apply-at (+ 1000 (now)) println "hola"))
 
 (comment
   (def voice-state {:durs [1]

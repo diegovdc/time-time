@@ -1,7 +1,7 @@
 (ns time-time.sequencing-3-test
   (:require [clojure.core.async :as a]
             [clojure.test :refer [deftest is testing]]
-            [overtone.core :refer [now]]
+            [time-time.standard :refer [now]]
             [time-time.sequencing-3
              :refer
              [calculate-next-voice-state play-event? schedule! schedule?]]
@@ -130,7 +130,7 @@
                  {:index 3, :elapsed 40N, :dur 2}
                  {:index 4, :elapsed 60N, :dur 1}
                  {:index 5, :elapsed 70N, :dur 1})
-               (map #(-> %
+               (mapv #(-> %
                          (select-keys [:index :elapsed])
                          (assoc :dur (get-dur %)))
                     (a/<!! result-chan))))))
@@ -144,10 +144,11 @@
                                        (a/>!! event-chan
                                               (assoc data :event-at (now))))))]
         (schedule! v)
-        (is (->> (a/<!! result-chan)
-                 (map :event-at)
-                 get-time-interval
-                 (map (fn [test-interval real-interval]
-                        (close-to test-interval 3 real-interval))
-                      [10 20 10 20 10])
-                 (every? true?)))))))
+        (is (= true
+               (->> (a/<!! result-chan)
+                    (map :event-at)
+                    get-time-interval
+                    (map (fn [test-interval real-interval]
+                           (close-to test-interval 7 real-interval))
+                         [10 20 10 20 10])
+                    (every? true?))))))))

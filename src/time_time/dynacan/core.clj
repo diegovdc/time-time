@@ -1,6 +1,7 @@
 (ns time-time.dynacan.core
   (:require [clojure.spec.alpha :as spec]
-            [time-time.utils.core :refer [rotate]]))
+            [time-time.utils.core :refer [rotate]]
+            [taoensso.timbre :as log]))
 
 (spec/def ::index int?)
 (spec/def ::ratio rational?)
@@ -149,10 +150,14 @@
   NOTE: `cp` may be `nil` and then `ensure-rel-voice-cp` will find a default value."
   [echoic-distance-event-qty
    ref-voice
-   {:keys [durs cp ratio loop?] :or {loop? true} :as rel-voice}]
+   {:keys [durs cp ratio loop?], :or {loop? true}, :as rel-voice}]
   (let [current-ref-index (:index ref-voice)
         ref-durs (:durs ref-voice)
-        rel-voice-cp (ensure-rel-voice-cp current-ref-index ref-durs echoic-distance-event-qty durs cp)
+        rel-voice-cp (ensure-rel-voice-cp current-ref-index
+                                          ref-durs
+                                          echoic-distance-event-qty
+                                          durs
+                                          cp)
         ref-start-index (mod current-ref-index (count ref-durs))
         cp-event (get-event-at (:ratio ref-voice)
                                ref-durs

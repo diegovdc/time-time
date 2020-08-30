@@ -1,6 +1,5 @@
 (ns time-time.standard
-  (:require
-   [clojure.string :as string]))
+  (:require [clojure.string :as string]))
 
 (defn rand-pos [smpl] (rand-int (:n-samples smpl)))
 
@@ -29,3 +28,8 @@
 (defn ->xos [xo-string]
   (->> (string/split xo-string #"")
        (map #(= "x" %))))
+
+(defn now
+  "Returns the current time in ms"
+  []
+  (System/currentTimeMillis))
