@@ -33,3 +33,12 @@
   "Returns the current time in ms"
   []
   (System/currentTimeMillis))
+
+(defn rrand
+  "Random number in range"
+  ([bottom top]
+   (let [rand-fn (if (some float? [bottom top])
+                   rand rand-int)]
+     (-> (- top bottom)
+         rand-fn
+         (+ bottom)))))
