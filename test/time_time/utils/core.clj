@@ -52,7 +52,7 @@
                     voice
                     (let [original-dur (nth durs (mod index (count durs)))
                           dur (* (voice :ratio) original-dur)
-                          edq (:echoic-distance-event-qty (last res))]
+                          edq (:events-from-cp (last res))]
                       {:durs durs
                        :index index
                        :dur dur
@@ -61,21 +61,21 @@
                                    (get (last res)
                                         :elapsed
                                         (:elapsed voice)))
-                       :echoic-distance-event-qty (if edq
+                       :events-from-cp (if edq
                                                     (dec edq)
-                                                    (:echoic-distance-event-qty voice))
-                       :echoic-distance (if (empty? res)
-                                          (voice :echoic-distance)
+                                                    (:events-from-cp voice))
+                       :interval-from-cp (if (empty? res)
+                                          (voice :interval-from-cp)
                                           (- (-> res
                                                  last
-                                                 :echoic-distance)
+                                                 :interval-from-cp)
                                              (-> res last :dur)))})))))))
 
 
 (comment
   ;;test
   (get-next-n-events [1 1 1 1]
-   {:echoic-distance 4 :elapsed 0 :index 0 :ratio 1 :echoic-distance-event-qty 4}
+   {:interval-from-cp 4 :elapsed 0 :index 0 :ratio 1 :events-from-cp 4}
    4))
 
 (defn get-next-event [voice durs]

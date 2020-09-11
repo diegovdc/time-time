@@ -6,7 +6,8 @@
    [overtone.music.time :refer [now]]
    [time-time.player :as p :refer [player]]
    [time-time.standard :refer [wrap-at dur->ms]]
-   [clojure.set :as set]))
+   [clojure.set :as set]
+   [taoensso.timbre :as log]))
 
 
 (deftype std [canon-atoms]
@@ -34,43 +35,59 @@
        (spec/valid? ::durs durs) (std!- durs ratios cp on-event opts*)
        :default (throw (ex-info (spec/explain-str ::durs durs) {:durs durs}))))))
 
-
+(declare +extra-data)
 (defn std!- [durs ratios cp on-event {:keys [start-time loop? tempo]}]
   (let [ratios (->> ratios (map reciprocal) (sort-by identity >))
         ref-ratio (first ratios)
-        cp-elapsed-at (:elapsed (get-event-at ref-ratio durs cp))
+        cp-elapsed (:elapsed (get-event-at ref-ratio durs cp))
         start-time* (+ start-time (now))
         total-dur (apply + durs)
-        canon-dur (* ref-ratio total-dur)
-        canon (into []
-                    (map-indexed
-                     (fn [voice-index r]
-                       (let [{:keys [index elapsed] :as data} (find-first-event-using-cp
-                                                               r durs cp cp-elapsed-at
-                                                               :loop? false)
-
-                             total-dur* (* total-dur r)
-                             ;; silent duration after the voice has ended
-                             ;; and before the whole canon ends
-                             ;; it is an absolute duration with respect
-                             ;; to the `total-dur`
-                             rest* (- canon-dur total-dur* elapsed)]
-                         (s/play! durs on-event
-                                  :ratio r
-                                  :start-time start-time*
-                                  :start-index index
-                                  :elapsed elapsed
-                                  :loop? loop?
-                                  :tempo tempo
-                                  :extra-data (+extra-data voice-index
-                                                           canon-dur
-                                                           total-dur*
-                                                           rest*
-                                                           data)
-                                  :before-update (partial before-update rest*
-                                                          ref-ratio))))
-                     ratios))]
+        canon
+        (into []
+              (map-indexed
+               (fn [voice-index ratio]
+                 (let [{:keys [index elapsed]
+                        :as first-event-data} (find-first-event-using-cp
+                                               ratio
+                                               durs
+                                               cp
+                                               cp-elapsed
+                                               :loop? false)]
+                   (s/play! durs on-event
+                            :ratio ratio
+                            :start-time start-time*
+                            :start-index index
+                            :elapsed elapsed
+                            :loop? loop?
+                            :tempo tempo
+                            :before-update  before-update
+                            :extra-data (+extra-data total-dur
+                                                     ref-ratio
+                                                     first-event-data
+                                                     voice-index
+                                                     ratio
+                                                     tempo))))
+               ratios))]
     (std. canon)))
+
+(defn +extra-data [total-dur ref-ratio first-event-data voice-index ratio tempo]
+  (let [elapsed (first-event-data :elapsed)
+        total-dur* (* total-dur ratio)
+        canon-dur (* ref-ratio total-dur)
+        rest* (- canon-dur total-dur* elapsed)
+        rest-ms (dur->ms rest* tempo)
+        start-delay-ms (dur->ms elapsed tempo)]
+    (-> first-event-data
+        (set/rename-keys
+         {:index :initial-index
+          :elapsed :start-delay})
+        (assoc :voice voice-index
+               :canon-dur canon-dur
+               :total-dur total-dur*
+               ;; `:rest` is the silent duration after the voice has ended and before the whole canon ends it is an absolute duration with respect to the `total-dur`
+               :rest rest*
+               :rest-ms rest-ms
+               :start-delay-ms start-delay-ms))))
 
 (defn reciprocal [n] (/ 1 n))
 
@@ -78,31 +95,19 @@
   (and (not= 0 index) (= 0 (mod index (count durs)))))
 
 (defn add-delay-on-loop-repeat
-  "Addss the rest and start-delay values for voices on repeat.
+  "Adds the `rest-ms` and `start-delay-ms` values for voices on repeat.
   Necessary for all the voices that are not the reference voice"
-  [{:keys [elapsed start-delay tempo] :as data}
-   rest* ref-ratio]
+  [{:keys [elapsed-ms start-delay-ms rest-ms] :as data}]
   (if (and (loop-restart? data) (:loop? data))
-    (assoc data :elapsed (+ elapsed (dur->ms (+ rest* start-delay) tempo)))
+    (assoc data :elapsed-ms (+ elapsed-ms start-delay-ms rest-ms))
     data))
 
-(defn +extra-data
-  [voice-index canon-dur total-dur* rest* data]
-  (-> data
-      (set/rename-keys
-       {:index :initial-index
-        :elapsed :start-delay})
-      (assoc :voice voice-index
-             :canon-dur canon-dur
-             :total-dur total-dur*
-             :rest rest*)))
-
 (defn before-update
-  [rest* ref-ratio {:as data {dur :dur} :current-event}]
+  [{:as data {dur :dur} :current-event}]
   (-> data
-      (add-delay-on-loop-repeat rest* ref-ratio)
-      (update :echoic-distance-event-qty dec)
-      (update :echoic-distance - dur)))
+      add-delay-on-loop-repeat
+      (update :events-from-cp dec)
+      (update :interval-from-cp - dur)))
 
 
 (comment

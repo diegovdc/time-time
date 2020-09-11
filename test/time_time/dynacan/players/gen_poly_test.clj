@@ -31,9 +31,9 @@
                                   :ratio 1
                                   :tempo 2400))
         v2-durs [1 2]
-        make-v2 (fn [v1 echoic-distance-qty event-chan & {:keys [cp loop?]
+        make-v2 (fn [v1 events-from-cp* event-chan & {:keys [cp loop?]
                                                          :or {cp nil loop? false}}]
-                  (add-to! @v1 echoic-distance-qty
+                  (add-to! @v1 events-from-cp*
                            (fn [{:keys [data]}]
                              (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))
                            {:durs v2-durs :ratio 1/3 :cp cp  :loop? loop?}))
@@ -41,37 +41,38 @@
         ]
 
     (testing "Non-looping `v2`"
-      (testing "`echoic-distance-qty` is 0 so cp should happen on ref-voice's index 5"
+      (testing "`events-from-cp*` is 0 so cp should happen on ref-voice's index 5"
         (let [compiler-chan (a/chan)
               first-event-after-compilation (inc compile-index)
-              echoic-distance-qty 0
-              final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+              events-from-cp* 0
+              final-index  (+ 1 first-event-after-compilation events-from-cp*)
               {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
               v1 (make-ref-voice compiler-chan compile-index event-chan
                                  (stop-at-index stop-chan final-index))
               _ (a/<!! compiler-chan)
-              v2 (make-v2 v1 echoic-distance-qty event-chan)
+              v2 (make-v2 v1 events-from-cp* event-chan)
+              _ (log/info "corre")
               results (group-by ::voice (a/<!! result-chan))]
           (stop! v1 v2)
           (is (close-to (-> results :ref (nth (inc compile-index)) ::now)
                         5
                         (-> results :v-2 (nth 0) ::now)))))
 
-      (testing "`echoic-distance-qty` is greater than zero. `v2-cp`: selected at random within the voice durs indexes. `echoic-distance-qty` is 5 so cp should happen on ref-voice's index 10 (because `compile-index` is 4)"
+      (testing "`events-from-cp*` is greater than zero. `v2-cp`: selected at random within the voice durs indexes. `events-from-cp*` is 5 so cp should happen on ref-voice's index 10 (because `compile-index` is 4)"
         (let [compiler-chan (a/chan)
               first-event-after-compilation (inc compile-index)
-              echoic-distance-qty 5
-              final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+              events-from-cp* 5
+              final-index  (+ 1 first-event-after-compilation events-from-cp*)
               {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
               v1 (make-ref-voice compiler-chan compile-index event-chan
                                  (stop-at-index stop-chan final-index))
               _ (a/<!! compiler-chan)
               v2-cp (rand-nth [0 1])
-              v2 (make-v2 v1 echoic-distance-qty event-chan :cp v2-cp)
+              v2 (make-v2 v1 events-from-cp* event-chan :cp v2-cp)
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
           (stop! v1 v2)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5
@@ -80,18 +81,18 @@
       (testing "`v2-cp`: beyond voice durs indexes, `add-to!` will use modulo arithmetic to determine the real cp. "
         (let [compiler-chan (a/chan)
               first-event-after-compilation (inc compile-index)
-              echoic-distance-qty 5
-              final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+              events-from-cp* 5
+              final-index  (+ 1 first-event-after-compilation events-from-cp*)
               {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
               v1 (make-ref-voice compiler-chan compile-index event-chan
                                  (stop-at-index stop-chan final-index))
               _ (a/<!! compiler-chan)
               v2-cp (rrand 3 10)
-              v2 (make-v2 v1 echoic-distance-qty event-chan :cp v2-cp)
+              v2 (make-v2 v1 events-from-cp* event-chan :cp v2-cp)
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
           (stop! v1 v2)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5
@@ -100,23 +101,22 @@
     (testing "Looping `v2`"
       (let [compiler-chan (a/chan)
             first-event-after-compilation (inc compile-index)
-            echoic-distance-qty 2
-            final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+            events-from-cp* 2
+            final-index  (+ 1 first-event-after-compilation events-from-cp*)
             {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
             v1 (make-ref-voice compiler-chan compile-index event-chan
                                (stop-at-index stop-chan final-index))
             _ (a/<!! compiler-chan)
             v2-cp (rrand 7 10)
             v2-cp-real-index 10 ;; NOTE hard-coded for practicity
-            v2 (make-v2 v1 echoic-distance-qty event-chan :cp v2-cp :loop? true)
+            v2 (make-v2 v1 events-from-cp* event-chan :cp v2-cp :loop? true)
             results* (a/<!! result-chan)
             results (group-by ::voice results*)]
-        (user/capture :results results*)
         (stop! v1 v2)
 
         (testing "If `v2` loops there is a `cp`"
           (is (close-to (-> results :ref
-                            (nth (+ echoic-distance-qty first-event-after-compilation)) ;; NOTE `index` 6
+                            (nth (+ events-from-cp* first-event-after-compilation)) ;; NOTE `index` 6
                             ::now)
                         5
                         (-> results :v-2 (nth v2-cp-real-index) ::now))))
@@ -131,8 +131,7 @@
           (is (close-to (-> results :ref (nth first-event-after-compilation) ::now)
                         5
                         (-> results :v-2 first ::now))))))
-    ;; TODO add v3
-    ;; WIP
+
     (testing "Adding a third voice"
       (testing "`v1` is the ref-voice for `v2` and `v3`, each voice has a different `cp` with respect to `v1`."
         (let [compiler-chan (a/chan)
@@ -140,7 +139,7 @@
               ->cps (fn [voice event]
                       (when (= (:echoic-distance-event-qty event) 0)
                         (swap! cps assoc voice event)))
-              echoic-distance-qty 5
+              events-from-cp* 5
               compile-index-1 4
               compile-index-2 9
               first-event-after-compilation-v2 (inc compile-index-1)
@@ -156,30 +155,30 @@
                           :tempo 2400)
               _ (a/<!! compiler-chan)
               v2-cp (rrand 3 10)
-              v2 (add-to! @v1 echoic-distance-qty
+              v2 (add-to! @v1 events-from-cp*
                           (fn [{:keys [data]}]
                             (->cps :v2 data)
                             (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))
                           {:durs v2-durs :ratio 11/13 :cp v2-cp :loop? true})
               _ (a/<!! compiler-chan)
               v3-cp (rrand 3 10)
-              v3 (add-to! @v1 echoic-distance-qty
+              v3 (add-to! @v1 events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-3 ::now (now)))
                             (->cps :v3 data)
-                            (when (= (:echoic-distance-event-qty data) -1)
+                            (when (= (:events-from-cp data) -1)
                               (a/>!! stop-chan true))
-                            ((stop-at-index stop-chan (-> @v1 :index inc (+ echoic-distance-qty))) data))
+                            ((stop-at-index stop-chan (-> @v1 :index inc (+ events-from-cp*))) data))
                           {:durs [3 5] :ratio 5/7 :cp v3-cp :loop? true})
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
-          (stop! v1 v2 v3)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (stop! v1 v2  v3)
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation-v2))
                             ::now)
                         5
                         (-> results :v-2 (nth 10) ::now)))
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation-v3))
                             ::now)
                         5
@@ -190,7 +189,7 @@
               ->cps (fn [voice event]
                       (when (= (:echoic-distance-event-qty event) 0)
                         (swap! cps assoc voice event)))
-              echoic-distance-qty 5
+              events-from-cp* 5
               compile-index-1 4
               compile-index-2 9
               first-event-after-compilation-v2 (inc compile-index-1)
@@ -205,25 +204,25 @@
                           :tempo 2400)
               _ (a/<!! compiler-chan)
               v2-cp (rrand 3 10)
-              v2 (add-to! @v1 echoic-distance-qty
+              v2 (add-to! @v1 events-from-cp*
                           (fn [{:keys [data]}]
                             (->cps :v2 data)
                             (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))
                           {:durs v2-durs :ratio 11/13 :cp v2-cp :loop? true})
               _ (a/<!! compiler-chan)
               v3-cp (rrand 3 10)
-              v3 (add-to! @v2 echoic-distance-qty
+              v3 (add-to! @v2 events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-3 ::now (now)))
                             (->cps :v3 data)
-                            (when (= (:echoic-distance-event-qty data) -1)
+                            (when (= (:events-from-cp data) -1)
                               (a/>!! stop-chan true))
-                            ((stop-at-index stop-chan (-> @v1 :index inc (+ echoic-distance-qty))) data))
+                            ((stop-at-index stop-chan (-> @v1 :index inc (+ events-from-cp*))) data))
                           {:durs [3 5] :ratio 5/7 :cp v3-cp :loop? true})
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
           (stop! v1 v2 v3)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation-v2))
                             ::now)
                         5
@@ -234,31 +233,31 @@
       (testing "(Non-looping version) `v1` is the ref-voice for `v2` and `v3`. Both are compiled at the same time and should therefore have the same cp. NOTE `v1` must be dereferenced once."
         (let [compiler-chan (a/chan)
               first-event-after-compilation (inc compile-index)
-              echoic-distance-qty 5
-              final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+              events-from-cp* 5
+              final-index  (+ 1 first-event-after-compilation events-from-cp*)
               {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
               v1 (make-ref-voice compiler-chan compile-index event-chan
                                  (stop-at-index stop-chan final-index))
               _ (a/<!! compiler-chan)
               cp 1
               v1-data @v1
-              v2 (add-to! v1-data echoic-distance-qty
+              v2 (add-to! v1-data events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))
                           {:durs v2-durs :ratio 11/13 :cp cp :loop? false})
-              v3 (add-to! v1-data echoic-distance-qty
+              v3 (add-to! v1-data events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-3 ::now (now))))
                           {:durs [1 5] :ratio 11/15 :cp cp :loop? false})
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
           (stop! v1 v2 v3)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5
                         (-> results :v-2 (nth cp) ::now)))
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5
@@ -266,31 +265,31 @@
       (testing "(Looping version) `v1` is the ref-voice for `v2` and `v3`. Both are compiled at the same time and should therefore have the same cp. NOTE `v1` must be dereferenced once."
         (let [compiler-chan (a/chan)
               first-event-after-compilation (inc compile-index)
-              echoic-distance-qty 5
-              final-index  (+ 1 first-event-after-compilation echoic-distance-qty)
+              events-from-cp* 5
+              final-index  (+ 1 first-event-after-compilation events-from-cp*)
               {:keys [event-chan result-chan stop-chan]} (async-events-tester-2)
               v1 (make-ref-voice compiler-chan compile-index event-chan
                                  (stop-at-index stop-chan final-index))
               _ (a/<!! compiler-chan)
               cp 1
               v1-data @v1
-              v2 (add-to! v1-data echoic-distance-qty
+              v2 (add-to! v1-data events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))
                           {:durs v2-durs :ratio 11/13 :cp cp :loop? true})
-              v3 (add-to! v1-data echoic-distance-qty
+              v3 (add-to! v1-data events-from-cp*
                           (fn [{:keys [data]}]
                             (a/>!! event-chan (assoc data ::voice :v-3 ::now (now))))
                           {:durs [1 5] :ratio 11/15 :cp cp :loop? true})
               results* (a/<!! result-chan)
               results (group-by ::voice results*)]
           (stop! v1 v2 v3)
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5
                         (-> results :v-2 (nth 10) ::now)))
-          (is (close-to (-> results :ref (nth (+ echoic-distance-qty
+          (is (close-to (-> results :ref (nth (+ events-from-cp*
                                                  first-event-after-compilation))
                             ::now)
                         5

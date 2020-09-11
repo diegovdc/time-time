@@ -33,7 +33,9 @@
                             :loop? loop?
                             :index start-index
                             :started-at start-time
-                            :elapsed (dur->ms elapsed tempo)
+                            ;; maybe FIXME, perhaps `play!` should receive
+                            ;; `elapsed-ms` instead of `elapsed`
+                            :elapsed-ms (dur->ms elapsed tempo)
                             :playing? playing?
                             :before-update before-update
                             :on-schedule on-schedule}))]
@@ -41,11 +43,11 @@
     voice))
 
 (defn calculate-next-voice-state
-  [{:keys [index durs elapsed ratio tempo] :as voice}]
+  [{:keys [index durs elapsed-ms ratio tempo] :as voice}]
   (let [dur (-> (wrap-at index durs) (* ratio))
         event-dur (dur->ms dur tempo)
         updated-state {:index (inc index)
-                       :elapsed (+ elapsed event-dur)
+                       :elapsed-ms (+ elapsed-ms event-dur)
                        :current-event {:dur-ms event-dur :dur dur}}]
     (merge voice updated-state)))
 
@@ -68,13 +70,13 @@
        ;; TODO calculate-next-voice-state should only return the fields below
        (select-keys voice-update
                     [:index
-                     :elapsed
+                     :elapsed-ms
                      :current-event]))
       before-update))
 
 (defn schedule! [voice-atom]
-  (let [{:keys [started-at elapsed] :as v} @voice-atom
-        event-schedule (log/spy (+ started-at elapsed))
+  (let [{:keys [started-at elapsed-ms] :as v} @voice-atom
+        event-schedule (log/spy (+ started-at elapsed-ms))
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom

@@ -16,6 +16,13 @@ Conventions:
 `:echoic-distance`
 `:echoic-distance-event-qty`
 
+;;TODO
+:cp-at
+:\*-at
+
+;; TODO
+sequencing-3 `:current-event` is not clear
+
 ### What are Abstract time units?
 
 # WIP
@@ -31,7 +38,7 @@ los miliseconds es UTC son utiles para relacinarse con el tiempo de la maquina.
 
 ejs:
 
- :elapsed 1.2
+:elapsed 1.2
 :elapsed-ms 1923873940
 
 ---

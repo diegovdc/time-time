@@ -6,11 +6,10 @@
 (spec/def ::index int?)
 (spec/def ::ratio rational?)
 (spec/def ::elapsed number?)
-(spec/def ::echoic-distance number?)
-(spec/def ::echoic-distance-event-qty int?)
+(spec/def ::interval-from-cp number?)
+(spec/def ::events-from-cp int?)
 (spec/def ::voice (spec/keys :req-un [::index ::ratio ::elapsed]
-                             :opt-un [::echoic-distance-event-qty
-                                      ::echoic-distance]))
+                             :opt-un [::interval-from-cp ::events-from-cp]))
 
 
 (defn get-event-at
@@ -35,20 +34,19 @@
 ;;;; given a list of durs, a ratio, an event at index cp and a moment in time calculate most inmediate possible event (the one closest to elapsed-at >= 0
 
 (defn get-partial-cycle-durs
-  ;; NOTE start-index must already be in modulo form
-  [dur-acc ratio durs start-index max-elapsed]
+  ;; NOTE `start-index` must already be in modulo form
+  [dur-acc ratio durs start-index target-point]
   (loop [dur-acc* dur-acc
          i (dec start-index)]
     (let [next-dur (* ratio (nth durs i 0))
           next-acc-val (+ dur-acc* next-dur)]
       (if (or (< i 0)
-              (> next-acc-val max-elapsed))
+              (> next-acc-val target-point))
         {:index (inc i)
-         :elapsed dur-acc*
-         :elapsed-at (- max-elapsed dur-acc*)
-         :completed-all (> next-acc-val max-elapsed) }
+         :accumulated-duration dur-acc*
+         :elapsed (- target-point dur-acc*)
+         :completed-all (> next-acc-val target-point)}
         (recur next-acc-val (dec i))))))
-;;*
 
 (do
   (defn find-first-event-using-cp
@@ -73,7 +71,7 @@
 
   Options:
   `:loop?` Whether the sequence can start at a point prior to `index` 0, which means that the sequence needs to loop to reach the `cp`"
-    [ratio durs cp cp-elapsed-at & {:keys [loop? start-index]
+    [ratio durs cp cp-elapsed & {:keys [loop? start-index]
                                     :or {loop? true
                                          start-index 0}}]
     (let [durs-size (count durs)
@@ -82,36 +80,36 @@
                    ratio
                    durs
                    (mod cp durs-size)
-                   cp-elapsed-at)
+                   cp-elapsed)
           cycle-total (* ratio (apply + durs))
-          cyn->cy0 (quot (pcy-end :elapsed-at) cycle-total)
-          pcy-end+cyn->cy0 (+ (pcy-end :elapsed) (* cyn->cy0 cycle-total))
+          cyn->cy0 (quot (pcy-end :elapsed) cycle-total)
+          pcy-end+cyn->cy0 (+ (pcy-end :accumulated-duration) (* cyn->cy0 cycle-total))
           pcy-start (get-partial-cycle-durs
                      pcy-end+cyn->cy0
                      ratio
                      durs
                      durs-size
-                     cp-elapsed-at)
+                     cp-elapsed)
           loop-cycle? (and loop? (false? (pcy-end :completed-all)) )
           index (if loop-cycle?
                   (pcy-start :index)
                   (pcy-end :index))
-          elapsed-at (if loop-cycle?
-                       (pcy-start :elapsed-at)
-                       (pcy-end :elapsed-at))
-          echoic-distance (- cp-elapsed-at elapsed-at)
+          elapsed (if loop-cycle?
+                       (pcy-start :elapsed)
+                       (pcy-end :elapsed))
+          interval-from-cp (- cp-elapsed elapsed)
           start-index (mod index durs-size)]
       {:ratio ratio
-       :elapsed elapsed-at
+       :elapsed elapsed
        :index start-index
        ;; :durs durs
        :cp cp
-       :cp-at cp-elapsed-at
-       :echoic-distance echoic-distance
-       :echoic-distance-event-qty
+       :cp-elapsed cp-elapsed
+       :interval-from-cp interval-from-cp
+       :events-from-cp
        ;; #dbg
        (cond
-         (= echoic-distance 0) 0
+         (= interval-from-cp 0) 0
          (not loop-cycle?) (- (mod cp durs-size) start-index)
          :else (+
                 ;; start-index of the end cycle
@@ -129,18 +127,18 @@
 
 (defn modulo-cp
     "Finds the `cp` in modulo form for given the
-  `current-index` and the `echoic-distance-event-qty`"
-    [ref-durs ref-current-index echoic-distance-event-qty]
-    (mod (+ ref-current-index echoic-distance-event-qty)
+  `current-index` and the `events-from-cp`"
+    [ref-durs ref-current-index events-from-cp]
+    (mod (+ ref-current-index events-from-cp)
          (count ref-durs)))
 
 (defn ensure-rel-voice-cp
     "Makes sure that the relative voice has a definite cp, specially if `rel-voice-cp`
   is not defined"
-    [current-ref-index ref-durs echoic-distance-qty rel-voice-durs rel-voice-cp]
+    [current-ref-index ref-durs events-from-cp rel-voice-durs rel-voice-cp]
     (if (and (= ref-durs rel-voice-durs) (nil? rel-voice-cp))
-      (modulo-cp ref-durs current-ref-index echoic-distance-qty)
-      (or rel-voice-cp echoic-distance-qty)))
+      (modulo-cp ref-durs current-ref-index events-from-cp)
+      (or rel-voice-cp events-from-cp)))
 
 (defn find-relative-voice-first-event
   "Calculates the first event at which the new voice will start in order for it
@@ -148,20 +146,20 @@
   NOTE: It is assumed that the `ref-voice` will provide a current index which
   should reflect it's actual state (i.e. it may come from an atom or some sort of state)
   NOTE: `cp` may be `nil` and then `ensure-rel-voice-cp` will find a default value."
-  [echoic-distance-event-qty
+  [events-from-cp
    ref-voice
    {:keys [durs cp ratio loop?], :or {loop? true}, :as rel-voice}]
   (let [current-ref-index (:index ref-voice)
         ref-durs (:durs ref-voice)
         rel-voice-cp (ensure-rel-voice-cp current-ref-index
                                           ref-durs
-                                          echoic-distance-event-qty
+                                          events-from-cp
                                           durs
                                           cp)
         ref-start-index (mod current-ref-index (count ref-durs))
         cp-event (get-event-at (:ratio ref-voice)
                                ref-durs
-                               echoic-distance-event-qty
+                               events-from-cp
                                ref-start-index)]
     (find-first-event-using-cp ratio
                                durs

@@ -49,9 +49,9 @@
               :elapsed 0,
               :index 1,
               :cp 2,
-              :cp-at 2,
-              :echoic-distance 2,
-              :echoic-distance-event-qty 1}
+              :cp-elapsed 2,
+              :interval-from-cp 2,
+              :events-from-cp 1}
              (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
 
   (testing "Voice would start at index 2 directly on cp"
@@ -64,9 +64,9 @@
               :elapsed 3,
               :index 2,
               :cp 2,
-              :cp-at 3,
-              :echoic-distance 0,
-              :echoic-distance-event-qty 0}
+              :cp-elapsed 3,
+              :interval-from-cp 0,
+              :events-from-cp 0}
              (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
   (testing "Voice would start at `index` 2 with `:elapsed` 0. So durations are (+ 1 1.5 0.5) which equals 3. So index 2 will fall on cp."
     (let [ref-ratio 1
@@ -78,9 +78,9 @@
               :elapsed 0N,
               :index 2,
               :cp 2,
-              :cp-at 3,
-              :echoic-distance 3N,
-              :echoic-distance-event-qty 3N}
+              :cp-elapsed 3,
+              :interval-from-cp 3N,
+              :events-from-cp 3N}
              (find-first-event-using-cp ratio durs cp cp-elapsed-at)))))
 
   (testing "Non-looping first-event. Because ratio < ref-ratio and `:loop?` is `false`, the voice would start at `index` 0 on time (`:elapsed`) 3/2. So durations are (+ 1.5 #_form-elapsed 0.5 1) which equals three. Therefore index 2 will fall on cp."
@@ -93,9 +93,9 @@
               :elapsed 3/2,
               :index 0,
               :cp 2,
-              :cp-at 3,
-              :echoic-distance 3/2,
-              :echoic-distance-event-qty 2}
+              :cp-elapsed 3,
+              :interval-from-cp 3/2,
+              :events-from-cp 2}
              (find-first-event-using-cp ratio durs cp cp-elapsed-at :loop? false)))))
 
   (testing "Find convergence point for two different rhythmic sequences "
@@ -110,9 +110,9 @@
                 :elapsed 0N,
                 :index 0,
                 :cp 1,
-                :cp-at 1,
-                :echoic-distance 1N,
-                :echoic-distance-event-qty 1N}
+                :cp-elapsed 1,
+                :interval-from-cp 1N,
+                :events-from-cp 1N}
                (find-first-event-using-cp second-ratio second-durs cp cp-elapsed-at :loop? false)))))
     (testing "Convergence on index 1, second voice starting slightly late"
       (let [ref-ratio 1
@@ -125,9 +125,9 @@
                 :elapsed 1/3,
                 :index 0,
                 :cp 1,
-                :cp-at 1,
-                :echoic-distance 2/3,
-                :echoic-distance-event-qty 1N}
+                :cp-elapsed 1,
+                :interval-from-cp 2/3,
+                :events-from-cp 1N}
                (find-first-event-using-cp second-ratio second-durs cp cp-elapsed-at :loop? false)))))
     (testing "Convergence on index 10"
       (let [ref-ratio (+ 1 (rand-int 6))
@@ -144,12 +144,12 @@
                                                                     :loop? true))
             get-next-n-events* (fn [durs first-event]
                                  (get-next-n-events durs first-event
-                                                    (first-event :echoic-distance-event-qty)))
+                                                    (first-event :events-from-cp)))
             ref-voice-first-event (find-first-event-using-cp* ref-ratio ref-durs)
             second-voice-first-event (find-first-event-using-cp* second-ratio second-durs)
             ref-voice-events (get-next-n-events* ref-durs ref-voice-first-event)
             second-voice-events (get-next-n-events* second-durs second-voice-first-event)]
-        (is (apply = (map (comp (juxt :elapsed :echoic-distance) last)
+        (is (apply = (map (comp (juxt :elapsed :interval-from-cp) last)
                           [ref-voice-events
                            second-voice-events])))))))
 
@@ -181,7 +181,7 @@
         subordinate-voice subordinate-first-event
         simplify-data (fn [voice-events]
                         (map #(select-keys % [:index
-                                              :echoic-distance
+                                              :interval-from-cp
                                               :elapsed
                                               :original-dur])
                              voice-events))
@@ -194,23 +194,23 @@
     (testing "How a canonic sequence of events should look like (map keys are just for reference). NOTE sub-voices may start somewhere other that index 0 of `durs`, in fact they will start as close as possible to `:elapsed` time equaling `0`"
       (is (= canonic-sequence
              {:ref-voice-events
-              '({:index 0, :echoic-distance 8, :elapsed 0, :original-dur 2}
-                {:index 1, :echoic-distance 6, :elapsed 2, :original-dur 2}
-                {:index 2, :echoic-distance 4, :elapsed 4, :original-dur 4}
-                {:index 3, :echoic-distance 0, :elapsed 8, :original-dur 1}
-                {:index 4, :echoic-distance -1, :elapsed 9, :original-dur 2}),
+              '({:index 0, :interval-from-cp 8, :elapsed 0, :original-dur 2}
+                {:index 1, :interval-from-cp 6, :elapsed 2, :original-dur 2}
+                {:index 2, :interval-from-cp 4, :elapsed 4, :original-dur 4}
+                {:index 3, :interval-from-cp 0, :elapsed 8, :original-dur 1}
+                {:index 4, :interval-from-cp -1, :elapsed 9, :original-dur 2}),
               :sub-voice-events
-              '({:index 3, :echoic-distance 6N, :elapsed 2N, :original-dur 1}
-                {:index 4, :echoic-distance 16/3, :elapsed 8/3, :original-dur 2}
-                {:index 5, :echoic-distance 4N, :elapsed 4N, :original-dur 2}
-                {:index 6, :echoic-distance 8/3, :elapsed 16/3, :original-dur 4}
-                {:index 7, :echoic-distance 0N, :elapsed 8N, :original-dur 1})})))
-    (testing "Convergence point (`cp`) falls at `:index` 3 of `ref-voice`, with  `:original-dur` equaling 1, and with 8 units of `:elapsed` time. NOTE that indexes in different voices will not necessarily be the same, but the `:original-dur` (i.e. the nth index at `durs`) will be the same, as will be the `:elapsed` time units, and the `:echoic-distance`. Therefore any player implementation should be capable of respecting this results")
-    (is (= {:elapsed 8 :original-dur 1 :echoic-distance 0}
+              '({:index 3, :interval-from-cp 6N, :elapsed 2N, :original-dur 1}
+                {:index 4, :interval-from-cp 16/3, :elapsed 8/3, :original-dur 2}
+                {:index 5, :interval-from-cp 4N, :elapsed 4N, :original-dur 2}
+                {:index 6, :interval-from-cp 8/3, :elapsed 16/3, :original-dur 4}
+                {:index 7, :interval-from-cp 0N, :elapsed 8N, :original-dur 1})})))
+    (testing "Convergence point (`cp`) falls at `:index` 3 of `ref-voice`, with  `:original-dur` equaling 1, and with 8 units of `:elapsed` time. NOTE that indexes in different voices will not necessarily be the same, but the `:original-dur` (i.e. the nth index at `durs`) will be the same, as will be the `:elapsed` time units, and the `:interval-from-cp`. Therefore any player implementation should be capable of respecting this results")
+    (is (= {:elapsed 8 :original-dur 1 :interval-from-cp 0}
            (-> canonic-sequence :ref-voice-events (nth 3)
-               (select-keys [:elapsed :original-dur :echoic-distance]))
+               (select-keys [:elapsed :original-dur :interval-from-cp]))
            (-> canonic-sequence :sub-voice-events (nth 4)
-               (select-keys [:elapsed :original-dur :echoic-distance]))))))
+               (select-keys [:elapsed :original-dur :interval-from-cp]))))))
 
 (defn test-existence-of-cp-on-the-same-duration-for-different-voices
   "Demonstrate that the event at `cp` in two different voices occurs at the same
@@ -278,11 +278,11 @@
       #_:loop? (rand-nth [true false])))))
 
 
-(defspec prop-echoic-distance-event-qty 100
+(defspec prop-events-from-cp 100
   (testing "Echoic distance event quantity is correctly calculated,
            so that if we iterate a voice starting on the first event
            (as returned by `find-first-event-using-cp`)
-           by the number of events in `:echoic-distance-event-qty`
+           by the number of events in `:events-from-cp`
            (returned by the same function)
            we will arrive exactly at the cp."
     (prop/for-all
@@ -300,17 +300,17 @@
                            durs
                            first-event
                            (first-event
-                            :echoic-distance-event-qty)))
+                            :events-from-cp)))
            cp-event-elapsed (cp-event :elapsed)]
        (= cp-elapsed-at cp-event-elapsed)))))
 
-(defspec prop-echoic-distance 100
+(defspec prop-interval-from-cp 100
   (testing "Echoic distance is correctly calculated,
            so that if we iterate a voice starting on the first event
            (as returned by `find-first-event-using-cp`)
-           by the number of events in `:echoic-distance-event-qty`
+           by the number of events in `:events-from-cp`
            (returned by the same function)
-           then on the cp-event we the `:echoic-distance` will be
+           then on the cp-event we the `:interval-from-cp` will be
            exactly 0."
     (prop/for-all
      [ratio (gen-ratio)
@@ -327,43 +327,14 @@
                            durs
                            first-event
                            (first-event
-                            :echoic-distance-event-qty)))]
-       (and (= 0 (cp-event :echoic-distance))
-            (= 0 (cp-event :echoic-distance-event-qty)))))))
-
-#_(let [                                ;; NOTE, first two lines of `let` are fo
-        first-part (get-next-n-events [1 2] {:echoic-distance 10 :elapsed 0 :index 0 :ratio 1} 6)
-        second-part (get-next-n-events new-durs (last first-part) 7)
-        ref-voice-events (map #(dissoc % :original-dur)
-                              (concat first-part  (drop 1 second-part)))
-        ref-voice-current-event (nth ref-voice-events current-ref-index)
-
-        second-voice-first-event (find-relative-voice-first-event
-                                  echoic-distance-qty
-                                  ref-voice-current-event
-                                  {:durs second-voice-durs
-                                   :ratio rel-voice-ratio
-                                   :cp cp})
-        second-voice-at-cp-event (last (user/spy (get-next-n-events
-                                                  second-voice-durs
-                                                  second-voice-first-event
-                                                  (second-voice-first-event
-                                                   :echoic-distance-event-qty))))
-        ref-voice-cp-event (last (get-next-n-events new-durs
-                                                    ref-voice-current-event
-                                                    echoic-distance-qty))
-        ]
-    [(= (wrap-at cp second-voice-durs) (:original-dur second-voice-at-cp-event))
-     (= 0 (:echoic-distance second-voice-at-cp-event))
-     (= (:elapsed second-voice-at-cp-event)
-        (- (:elapsed ref-voice-cp-event)
-           (:elapsed ref-voice-current-event)))])
-
+                            :events-from-cp)))]
+       (and (= 0 (cp-event :interval-from-cp))
+            (= 0 (cp-event :events-from-cp)))))))
 
 (defn test-find-relative-voice-first-event
-  [ref-voice-durs current-ref-index echoic-distance-qty second-voice-durs cp rel-voice-ratio loop?]
+  [ref-voice-durs current-ref-index interval-from-cp-qty second-voice-durs cp rel-voice-ratio loop?]
   (let [ref-voice-events (get-next-n-events ref-voice-durs
-                                            {:echoic-distance 10
+                                            {:interval-from-cp 10
                                              :elapsed 0
                                              :index 0
                                              :ratio 1}
@@ -371,7 +342,7 @@
         ref-voice-current-event (last ref-voice-events)
 
         second-voice-first-event (find-relative-voice-first-event
-                                  echoic-distance-qty
+                                  interval-from-cp-qty
                                   ref-voice-current-event
                                   {:durs second-voice-durs
                                    :ratio rel-voice-ratio
@@ -382,15 +353,15 @@
                                         second-voice-durs
                                         second-voice-first-event
                                         (second-voice-first-event
-                                         :echoic-distance-event-qty)))
+                                         :events-from-cp)))
 
         ref-voice-cp-event (last (get-next-n-events ref-voice-durs
                                                     ref-voice-current-event
-                                                    echoic-distance-qty))
+                                                    interval-from-cp-qty))
         ]
     {:dur-at-cp-is-correct?
      (= (wrap-at cp second-voice-durs) (:original-dur second-voice-at-cp-event))
-     :echoic-distance-is-0-at-cp (:echoic-distance second-voice-at-cp-event)
+     :interval-from-cp-is-0-at-cp (:interval-from-cp second-voice-at-cp-event)
      :elapsed-at-cp-is-equal-for-rel-and-ref-voices?
      (= (:elapsed second-voice-at-cp-event)
         (- (:elapsed ref-voice-cp-event)
@@ -400,17 +371,17 @@
   (prop/for-all
    [new-durs (gen-durs)
     current-ref-index (gen-cp)
-    echoic-distance-qty (gen-cp)
+    interval-from-cp-qty (gen-cp)
     second-voice-durs (gen-durs)
     cp (gen-cp)
     rel-voice-ratio (gen-ratio)]
    (= {:dur-at-cp-is-correct? true
-       :echoic-distance-is-0-at-cp 0
+       :interval-from-cp-is-0-at-cp 0
        :elapsed-at-cp-is-equal-for-rel-and-ref-voices? true}
 
       (test-find-relative-voice-first-event new-durs
                                             current-ref-index
-                                            echoic-distance-qty
+                                            interval-from-cp-qty
                                             second-voice-durs
                                             cp
                                             rel-voice-ratio
@@ -428,5 +399,5 @@
   (testing "Because `rel-voice-durs` is equal to `ref-durs` and `rel-voice-cp`
    is 1, then the cp should be 1"
     (is (= 1 (ensure-rel-voice-cp 1 [1 2] 3 [1 2] 1))))
-  (testing "Because `rel-voice-durs` is not equal to `ref-durs` and `rel-voice-cp` is `nil`, then the cp should be the same as the `echoic-distance-event-qty`"
+  (testing "Because `rel-voice-durs` is not equal to `ref-durs` and `rel-voice-cp` is `nil`, then the cp should be the same as the `events-from-cp`"
     (is (= 3 (ensure-rel-voice-cp 1 [1 2] 3 [2 5] nil)))))

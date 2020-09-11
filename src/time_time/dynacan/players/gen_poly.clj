@@ -37,9 +37,9 @@
 
 (defn add-to! [ref-voice echoic-distance-qty on-event {:keys [durs ratio loop?] :as config}]
   ;; TODO verify if ref-voice is playing?
-  (let [start-time (+ (ref-voice :elapsed) (ref-voice :started-at))
+  (let [start-time (+ (ref-voice :elapsed-ms) (ref-voice :started-at))
         tempo (ref-voice :tempo)
-        {:keys [index elapsed cp cp-elapsed-at echoic-distance echoic-distance-event-qty]}
+        {:keys [index elapsed cp cp-elapsed interval-from-cp events-from-cp]}
         (find-relative-voice-first-event echoic-distance-qty ;; TODO should probably return the start time of the voice
                                          ref-voice
                                          config)]
@@ -56,15 +56,15 @@
              :loop? loop?
              :before-update before-update
              :extra-data {:cp cp
-                          :cp-at cp-elapsed-at
-                          :echoic-distance echoic-distance
-                          :echoic-distance-event-qty echoic-distance-event-qty})))
+                          :cp-at cp-elapsed
+                          :interval-from-cp interval-from-cp
+                          :events-from-cp events-from-cp})))
 
 (defn before-update
   [{:as data {dur :dur} :current-event}]
   (-> data
-      (update :echoic-distance-event-qty dec)
-      (update :echoic-distance - dur)))
+      (update :events-from-cp dec)
+      (update :interval-from-cp - dur)))
 
 ;; TODO
 ;; verificar cómo funciona el cp en `add-to`... cómo se estan leyendo las duraciones... tal vez rotación

@@ -21,7 +21,7 @@
               :tempo 600)
         (is (apply = (->> (a/<!! result-chan)
                           (filter #(-> % :index (= 3)))
-                          (map (juxt :started-at :elapsed))
+                          (map (juxt :started-at :elapsed-ms))
                           (map #(apply + %)))))))
 
     (testing "In practice (using `:event-at`), the `cp`s happen very close to each other (less than 2ms)"
