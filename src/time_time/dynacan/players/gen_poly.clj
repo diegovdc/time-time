@@ -4,48 +4,19 @@
             [time-time.sequencing-3 :as s]
             [time-time.standard :refer [now]]))
 
-#_(-> @v1)
-#_(let [durs [1 2]
-        ratio 1/3
-        echoic-distance-qty 5
-        *v1 @v1
-        {:keys [index elapsed] :as first-event}
-        (find-relative-voice-first-event echoic-distance-qty
-                                         *v1
-                                         {:durs durs :ratio ratio :loop? true})
-
-        second-voice-at-cp-event (last (get-next-n-events
-                                        durs
-                                        first-event
-                                        (first-event :echoic-distance-event-qty)))
-
-        ref-voice-cp-event (last (get-next-n-events (*v1 :durs)
-                                                    (log/spy :info (assoc *v1 :echoic-distance 10))
-                                                    echoic-distance-qty))]
-    (pprint ref-voice-cp-event)
-    (pprint second-voice-at-cp-event)
-    (def v2 (s/play! durs
-                     (fn [{:keys [data]}] (log/info "v2" (:index  data) (now)))
-                     :ratio ratio
-                     :start-index index
-                     :elapsed elapsed
-                     :start-time (+ (*v1 :elapsed) (*v1 :started-at))
-                     :loop? true
-                     )))
-
 (declare before-update)
 
-(defn add-to! [ref-voice echoic-distance-qty on-event {:keys [durs ratio loop?] :as config}]
+(defn add-to! [ref-voice events-from-cp on-event {:keys [durs ratio loop?] :as config}]
   ;; TODO verify if ref-voice is playing?
   (let [start-time (+ (ref-voice :elapsed-ms) (ref-voice :started-at))
         tempo (ref-voice :tempo)
         {:keys [index elapsed cp cp-elapsed interval-from-cp events-from-cp]}
-        (find-relative-voice-first-event echoic-distance-qty ;; TODO should probably return the start time of the voice
+        (find-relative-voice-first-event events-from-cp ;; TODO should probably return the start time of the voice
                                          ref-voice
                                          config)]
-    (log/info "adding voice... cp-at ref-voice index"
-              (ref-voice :index)
-              (+ echoic-distance-qty (ref-voice :index)))
+    (log/debug "adding voice... cp-at ref-voice index"
+               (ref-voice :index)
+               (+ events-from-cp (ref-voice :index)))
     (s/play! durs
              on-event
              :ratio ratio
@@ -66,8 +37,7 @@
       (update :events-from-cp dec)
       (update :interval-from-cp - dur)))
 
-;; TODO
-;; verificar cómo funciona el cp en `add-to`... cómo se estan leyendo las duraciones... tal vez rotación
+;; TODO verificar cómo funciona el cp en `add-to`... cómo se estan leyendo las duraciones... tal vez rotación
 ;;  compilar en  diversos momentos
 ;;  en diversos loops
 
@@ -78,7 +48,78 @@
 ;; comenzar a pensar en la sintaxis
 
 
+
+
+
+
+(comment (defvoice one 'xoxoxox :ratio 2
+           (mod0 3 index
+                 (fx (stut 2) (bd) (reverb 0.5))
+                 (clap)))
+
+         (defvoice two 'xoxoxox :ratio 1/3 :ref one (clap)))
+
+
+(defmacro refrain [symbol durs ratio on-event]
+  (list 'def symbol `(s/play! ~durs
+                              (list 'fn '[{:keys [data]}]
+                                    ~on-event)
+                              :loop? false
+                              :ratio ~ratio)))
+
 (comment
+  (refrain one [1 1 1] 1 (log/info "v1" data (now)))
+  (-> one)
+
+  (swap! one assoc :playing? false))
+
+(defn mock-splay [durs on-event & {:keys [ratio] :as opts}]
+  (log/info ratio opts)
+  (on-event {:data {:index 1}}))
+
+(defmacro prepare-on-event
+  "`body` is the body of a function. It is syntax sugr and assumes there are two
+  vars in context, which are actually passed as args:
+  `ev` for the event data, and
+  `st` for the state data"
+  [body]
+  (let [f# (list 'fn '[{:keys [data]}] body)]
+    f#))
+
+(comment
+  (s/play! durs
+           on-event
+           :ratio ratio
+           :start-index index
+           :elapsed elapsed
+           :tempo tempo
+           :start-time start-time
+           :loop? loop?
+           :before-update before-update
+           :extra-data {:cp cp
+                        :cp-at cp-elapsed
+                        :interval-from-cp interval-from-cp
+                        :events-from-cp events-from-cp}))
+;; TODO rename me
+(defmacro refrain [symbol & {:keys [durs on-event] :as opts}]
+  ;; TODO path for ref-voice
+  (list 'def symbol
+        (let [opts* (apply concat (dissoc opts :on-event))]
+          `(~s/play!
+            ~durs
+            ~(list 'fn '[{{:keys [index]} :data}] on-event)
+            ~@opts*))))
+
+
+(comment
+  (require '[overtone.core :refer :all :exclude [now]])
+  (def s (synth (out 0 (* (env-gen (env-perc)) (sin-osc 200)))))
+  (refrain h
+           :durs [1 2 3]
+           :on-event (do (do (log/info "on-event called" (now)) (s)) 9)
+           :ratio 1
+           :start-index 0
+           :tempo 60)
   (defn prolong
     "Calculate nearest position if voice would be playing"
     ;; WIP
@@ -94,7 +135,7 @@
 ;;;  ref-voice
 ;;; find-first sirve para durs distintas
 
-  (gen-poly [{:r 1 :durs [1 2 3 4] :ref? true}
+  (gen-poly [{:r 1 :xo 'xoxoxox :ref? true}
              {:r 1 :durs [3 4] :cp 2}
              {:r 2 :durs [1 2 3 4] :cp 1}])
 
@@ -102,6 +143,11 @@
                    (fn [{:keys [data]}] (log/info "v1" (:index  data) (now)))
                    :loop? true
                    :ratio 1))
+  (refrain :durs [1 1 1]
+           :on-event (log/info "v1" dur index (now))
+           :fx (-> x y z)
+           :loop? true
+           :ratio 1)
 
   (def v2 (add-to! @v1 5
                    (fn [{:keys [data]}] (log/info "v2" (:index  data) (now)))
