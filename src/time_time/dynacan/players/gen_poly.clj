@@ -2,7 +2,8 @@
   (:require [taoensso.timbre :as log]
             [time-time.dynacan.core :refer [find-relative-voice-first-event]]
             [time-time.sequencing-3 :as s]
-            [time-time.standard :refer [now]]))
+            [time-time.standard :refer [now]]
+            [clojure.string :as str]))
 
 (declare before-update)
 
@@ -59,67 +60,139 @@
 
          (defvoice two 'xoxoxox :ratio 1/3 :ref one (clap)))
 
-
-(defmacro refrain [symbol durs ratio on-event]
-  (list 'def symbol `(s/play! ~durs
-                              (list 'fn '[{:keys [data]}]
-                                    ~on-event)
-                              :loop? false
-                              :ratio ~ratio)))
-
-(comment
-  (refrain one [1 1 1] 1 (log/info "v1" data (now)))
-  (-> one)
-
-  (swap! one assoc :playing? false))
-
-(defn mock-splay [durs on-event & {:keys [ratio] :as opts}]
-  (log/info ratio opts)
-  (on-event {:data {:index 1}}))
-
-(defmacro prepare-on-event
-  "`body` is the body of a function. It is syntax sugr and assumes there are two
-  vars in context, which are actually passed as args:
-  `ev` for the event data, and
-  `st` for the state data"
-  [body]
-  (let [f# (list 'fn '[{:keys [data]}] body)]
-    f#))
-
-(comment
-  (s/play! durs
-           on-event
-           :ratio ratio
-           :start-index index
-           :elapsed elapsed
-           :tempo tempo
-           :start-time start-time
-           :loop? loop?
-           :before-update before-update
-           :extra-data {:cp cp
-                        :cp-at cp-elapsed
-                        :interval-from-cp interval-from-cp
-                        :events-from-cp events-from-cp}))
 ;; TODO rename me
-(defmacro refrain [symbol & {:keys [durs on-event] :as opts}]
+(def refrains (atom {}))
+
+(defn add-to-refrain [key refrain]
+  (swap! refrains assoc key refrain))
+
+(defn define-ref-voice [x]
+  (def x 5))
+
+(define-ref-voice 'g )
+
+(defmacro refrain-a [symbol* & {:keys [durs on-event ref] :as opts}]
+  #_(println (get @refrains (-> ref parse-ref first))
+             (-> ref parse-ref second read-string inc))
   ;; TODO path for ref-voice
-  (list 'def symbol
-        (let [opts* (apply concat (dissoc opts :on-event))]
+  (list 'def symbol*
+        (let [opts* (apply concat (dissoc opts :on-event :ref))]
           `(~s/play!
             ~durs
             ~(list 'fn '[{{:keys [index]} :data}] on-event)
             ~@opts*))))
 
+(defn update-voice [symbol* opts]
+  (println opts)
+  (swap! (get @refrains (str symbol*)) merge opts))
+
+(get @refrains "h")
+
+(reset! refrains {})
+
+(defn parse-ref [ref] (str/split (str ref) #">>"))
+
+(defmacro refrain [symbol* & {:keys [durs on-event ref] :as opts}]
+  #_(println (get @refrains (-> ref parse-ref first))
+             (-> ref parse-ref second read-string inc))
+  ;; TODO path for ref-voice
+  (list 'do
+        (cond
+          (get @refrains (str symbol*)) (list 'update-voice (str symbol*)
+                                              (let [opts* (-> opts (dissoc :on-event :ref))]
+                                                `(assoc ~opts* :on-event
+                                                        ~(list 'fn '[{{:keys [index]} :data}]
+                                                               on-event))) )
+          (not ref)
+          ;; directly call s/play!
+          (list 'def symbol*
+                (let [opts* (apply concat (dissoc opts :on-event :ref))]
+                  `(~s/play!
+                    ~durs
+                    ~(list 'fn '[{{:keys [index]} :data}] on-event)
+                    ~@opts*)))
+          :else (list 'def symbol*
+                      (let [opts* (-> opts (dissoc :on-event :ref))]
+                        `(~add-to!
+                          ~(deref (get @refrains (-> ref parse-ref first)))
+                          ~(-> ref parse-ref second read-string)
+                          ~(list 'fn '[{{:keys [index]} :data}] on-event)
+                          ~opts*
+                          ))))
+        (list 'add-to-refrain (str symbol*) symbol*)))
+
+#_(refrain h
+         :durs [1/2]
+         :on-event (do (do (log/info "on-event called" index (now)) (s)) 9)
+         :ratio 1
+         :loop? true
+         :start-index 0
+         :tempo 60)
+(comment
+  (swap! h assoc :durs [1/2])
+
+  (name `h)
+  (swap! h assoc :durs [1])
+  (-> refrains deref)
+  (reset! refrains {})
+  (swap! h  merge {:durs [1 2]})
+  (swap! refrains dissoc "h2"))
+
+(def fib-scale [1.1459102934487975
+                1.2360828548001543
+                1.3262554161515112
+                1.3819820590666498
+                1.4721546204180067
+                1.5278812633331453
+                1.583607906248284
+                1.6180469715698396
+                1.7082195329211964
+                1.763946175836335
+                1.8196728187514737
+                1.8541118840730293
+                1.909838526988168
+                1.9442775923097235
+                1.9787166576312791
+                2.0000000000000004])
 
 (comment
-  (require '[overtone.core :refer :all :exclude [now]])
-  (def s (synth (out 0 (* (env-gen (env-perc)) (sin-osc 200)))))
+  (require '[overtone.core :refer :all :exclude [now]]
+           '[time-time.standard :refer [wrap-at]])
+  (defsynth s [freq 327] (out 0 (pan2 (* 0.2
+                                         (env-gen (env-perc)  :action FREE )
+                                         (square freq)))))
+  (s)
+  (s 777)
+  (refrain h3
+           :ref h>>1
+           :durs [1 1/3 1]
+           :on-event (s (* (rand-nth [2 1]) (wrap-at index [777 888 600 500 666 400])))
+           :ratio 3/8
+           :loop? true
+           :start-index 0)
+  (refrain h2
+           :ref h>>1
+           :durs [1/5 1 1/5 1 1/5 1/8]
+           :on-event (when  (= 1 (wrap-at index [1 0 0 0 0 0 0]))
+                       (s (* (wrap-at index [21/3 8/2 5/3])
+                             300
+                             (wrap-at (* index 24) fib-scale))))
+           :ratio (+ 1 (* 1/8 618/1000))
+           :loop? false
+           :start-index 0)
   (refrain h
-           :durs [1 2 3]
-           :on-event (do (do (log/info "on-event called" (now)) (s)) 9)
+           :durs [1/3 1/8 1/3 1/8]
+           :on-event (do (log/info index (now))
+                         (when  (= 1 (wrap-at index [0 0 0 0 0 0 0 0 0 0 1 ]))
+                           (s (* 300
+                                 #_(wrap-at index [8 5 3 13])
+                                 (wrap-at (* (wrap-at index [1]) index) fib-scale)))))
            :ratio 1
+           :loop? false
            :start-index 0
-           :tempo 60)
+           :tempo 80)
+
+  (stop)
   (defn prolong
     "Calculate nearest position if voice would be playing"
     ;; WIP
