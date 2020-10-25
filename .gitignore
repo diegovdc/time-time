@@ -18,4 +18,5 @@ profiles.clj
 dev/
 .shadow-cljs/
 node_modules/
-build/browser/
+build/browser/**
+!build/browser/browser-main.js
