@@ -16,3 +16,6 @@ resources/
 profiles.clj
 .calva/
 dev/
+.shadow-cljs/
+node_modules/
+build/browser/

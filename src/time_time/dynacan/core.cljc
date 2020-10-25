@@ -1,10 +1,12 @@
 (ns time-time.dynacan.core
   (:require [clojure.spec.alpha :as spec]
-            [time-time.utils.core :refer [rotate]]
-            [taoensso.timbre :as log]))
+            [time-time.standard :refer [rotate]]
+            #?(:clj [taoensso.timbre :as log]
+               :cljs [taoensso.timbre :as log :include-macros true])))
 
 (spec/def ::index int?)
-(spec/def ::ratio rational?)
+#?(:clj (spec/def ::ratio rational?)
+   :cljs (spec/def ::ratio number?))
 (spec/def ::elapsed number?)
 (spec/def ::interval-from-cp number?)
 (spec/def ::events-from-cp int?)

@@ -1,0 +1,16 @@
+{:source-paths ["src"]
+ :dependencies [[binaryage/devtools "0.9.7"]
+                [cider/cider-nrepl "0.25.3"]
+                [com.taoensso/timbre "5.1.0"]
+                [refactor-nrepl "2.5.0"]
+                [reagent "0.10.0"]]
+ :dev-http {5678 "build/browser"}
+ :builds ; https://shadow-cljs.github.io/docs/UsersGuide.html#target-node-script
+ {:browser {:target :browser
+            :output-dir "build/browser"
+            :asset-path "/"
+            :js-options {:js-provider :shadow }
+            :modules {:browser-main {:entries [time-time.web]
+                                     :init-fn time-time.web/init}}
+            :devtools {:before-load time-time.web/stop
+                       :after-load time-time.web/start}}}}

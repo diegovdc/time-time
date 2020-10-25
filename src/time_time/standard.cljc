@@ -1,5 +1,11 @@
 (ns time-time.standard
-  (:require [clojure.string :as string]))
+  #?@
+   (:clj
+    [(:require [clojure.string :as string])]
+    :cljs
+    [(:require
+      ["tone/build/esm/index" :as Tone]
+      [clojure.string :as string])]))
 
 (defn rand-pos [smpl] (rand-int (:n-samples smpl)))
 
@@ -17,7 +23,8 @@
   (try
     (let [i (mod index (count coll))]
       (nth coll i))
-    (catch Throwable _  not-found)))
+    #?(:clj (catch Throwable _  not-found)
+       :cljs (catch js/Error _ not-found))))
 
 (defn wrap-at [i coll]
   (let [i* (mod i (count coll))]
@@ -32,7 +39,9 @@
 (defn now
   "Returns the current time in ms"
   []
-  (System/currentTimeMillis))
+  #?(:clj (System/currentTimeMillis)
+     ;; NOTE We use Tone/now instead of Date.now for ease of use (fingers crossed)
+     :cljs (* 1000 (Tone/now))))
 
 (defn rrand
   "Random number in range"
@@ -42,3 +51,8 @@
      (-> (- top bottom)
          rand-fn
          (+ bottom)))))
+
+(defn rotate [a n]
+  (let [l (count a)
+        off (mod (+ (mod n l) l) l)]
+    (concat (drop off a) (take off a))))

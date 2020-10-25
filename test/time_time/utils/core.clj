@@ -1,11 +1,6 @@
 (ns time-time.utils.core
   (:require [clojure.spec.gen.alpha :as gen]))
 
-(defn rotate [a n]
-  (let [l (count a)
-        off (mod (+ (mod n l) l) l)]
-    (concat (drop off a) (take off a))))
-
 (defn get-time-interval
   "Calculate time interval between pairs of timestamps from a list of timestamps"
   [times]

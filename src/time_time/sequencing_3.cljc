@@ -3,9 +3,12 @@
   `:elapsed` is the amount of time elapsed by the end of the `:current-event`
     and it's measured in `milliseconds`"
   (:require
-   [time-time.standard :refer [dur->ms wrap-at]]
-   [overtone.music.time :refer [apply-at now]]
-   [taoensso.timbre :as log]))
+   [time-time.standard :refer [dur->ms wrap-at now]]
+   #?(:clj
+      [overtone.music.time :refer [apply-at]]
+      :cljs ["tone/build/esm/index" :as Tone])
+   #?(:clj [taoensso.timbre :as timbre]
+      :cljs [taoensso.timbre :as timbre :include-macros true])))
 
 
 (declare schedule!)
@@ -74,16 +77,23 @@
                      :current-event]))
       before-update))
 
+#?(:cljs
+   ;; Adds apply-at to shim overtone.music.time/apply-at
+   (do (def transport (Tone/Transport.start))
+     (defn apply-at [time on-event-fn]
+       (let [time (/ time 1000)]
+         (.scheduleOnce transport on-event-fn  time)))))
+
 (defn schedule! [voice-atom]
   (let [{:keys [started-at elapsed-ms] :as v} @voice-atom
-        event-schedule (log/spy (+ started-at elapsed-ms))
+        event-schedule (timbre/spy (+ started-at elapsed-ms))
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
                           {:keys [on-event before-update index durs loop?]
                            :or {before-update identity}} v]
                       (when (:playing? v*)
-                        (log/debug "About to play event")
+                        (timbre/debug "About to play event")
                         (try (do
                                (when (play-event? index durs loop?)
                                  ;; TODO current-event should always be present
@@ -91,11 +101,13 @@
                                (swap! voice-atom (partial update-voice
                                                           before-update
                                                           next-voice-state))
-                               (when (schedule? (next-voice-state :index)
-                                                (next-voice-state :durs)
-                                                loop?)
-                                 (schedule! voice-atom)))
-                             (catch Exception e (log/error e))))))]
+                               (if (schedule? (next-voice-state :index)
+                                              (next-voice-state :durs)
+                                              loop?)
+                                 (schedule! voice-atom)
+                                 (swap! voice-atom assoc :playing? false)))
+                             #?(:clj (catch Exception e (timbre/error e))
+                                :cljs (catch js/Error e (timbre/error e)) )))))]
     (apply-at event-schedule on-event*)))
 
 (comment
@@ -120,13 +132,24 @@
 
   (swap! v assoc :playing? false)
 
-  (def v1 (play! [1] (fn [_] (println "hola")
-                       (swap! v1 assoc :durs [(inc (rand 3))]))
-                 :loop? true
-                 :ratio 1/4
+  (def v1 (play! [1 1 1 2]
+                 (fn [_] (println "hola"))
+                 :loop? false
+                 :ratio (/ 1 4)
                  :start-time (+ 2000 (now))))
   (swap! v1 assoc :playing? false)
 
   (swap! v1 assoc :on-event
          (fn [_] (println "holassssss")
            (println (:durs (swap! v1 assoc :durs [(inc (rand 3))]))))))
+
+(comment
+  (def synth (.toDestination (Tone/Synth.)))
+
+  (def js-version
+    ;; NOTE now is in seconds not ms
+    (play! [1 1 1 2]
+           (fn [_] (.triggerAttackRelease synth "C4" "8n"))
+           :loop? false
+           :ratio (/ 1)
+           :start-time (+ 1 (now)))))

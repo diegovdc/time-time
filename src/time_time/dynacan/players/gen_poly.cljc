@@ -7,14 +7,19 @@
 
 (declare before-update)
 
-(defn add-to! [ref-voice events-from-cp on-event {:keys [durs ratio loop?] :as config}]
+(defn add-to! [ref-voice events-from-cp on-event
+               {:keys [durs ratio loop? cp]
+                :or {durs (ref-voice :durs)
+                     ratio (ref-voice :ratio)
+                     loop? (ref-voice :loop?)}
+                :as config}]
   ;; TODO verify if ref-voice is playing?
   (let [start-time (+ (ref-voice :elapsed-ms) (ref-voice :started-at))
         tempo (ref-voice :tempo)
         {:keys [index elapsed cp cp-elapsed interval-from-cp events-from-cp]}
         (find-relative-voice-first-event events-from-cp ;; TODO should probably return the start time of the voice
                                          ref-voice
-                                         config)]
+                                         {:durs durs :cp cp :ratio ratio :loop? loop?})]
     (log/debug "adding voice... cp-at ref-voice index"
                (ref-voice :index)
                (+ events-from-cp (ref-voice :index)))
@@ -49,9 +54,63 @@
 ;; comenzar a pensar en la sintaxis
 
 
+(comment
+  (def v (s/play! [1 1 1 1]
+                  (fn [{:keys [data]}]
+                    (s (wrap-at (data :index)
+                                [300 400]))) :loop? true ))
+  (swap! v assoc :loop? false))
+
+(defonce refrains (atom {}))
+
+
+(defmacro on-event [f-body]
+  (list 'fn '[{{:keys [index]} :data}] f-body))
+
+(defn update-refrain
+  ([id key val] (update-refrain id #(assoc % key val)))
+  ([id update-fn]
+   (swap! refrains update id #(do (swap! % update-fn) %))))
+
+(defn ref-rain [& {:keys [id durs on-event loop? ref distance]
+                   :or {loop? true
+                        distance 1}
+                   :as config}]
+  (cond (and (@refrains id) (-> @refrains id deref :playing?))
+        (update-refrain id #(merge % config))
+        (and (@refrains ref) (-> @refrains ref deref :playing?))
+        (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
+          (swap! refrains assoc id voice))
+        :else
+        (let [voice (s/play! durs on-event :loop? loop?)]
+          (swap! refrains assoc id voice))))
+
+(comment
+  (do (ref-rain :id ::v1
+                :durs [1/3 1/2 1/5]
+                :on-event (on-event (s 833))
+                :loop? false)
+      (ref-rain :id ::v2
+                :ref ::v1
+                :durs [1/2 1/2 1/2 1]
+                :cp 1
+                :on-event (on-event (s (rand-nth [700])))
+                :ratio 1/3
+                :loop? false)))
+(comment (o/stop))
+#_(add-to! (deref (@refrains ::v1)) 2 (on-event (s 700))  {:durs [1 2] :ratio 1/3 :loop? true})
+#_(add-to! (deref (@refrains ::v1)) 3
+         (on-event (when (= 0 (mod index 10))
+                     (s (rand-nth [333 400]))))
+         {:durs [2 3] :ratio 1/5 :loop? true})
 
 
 
+(def upref update-refrain)
+
+(comment (upref ::v1 :loop? false)
+
+         (update-refrain ::v1 #(assoc % :loop? false)))
 
 (comment (defvoice one 'xoxoxox :ratio 2
            (mod0 3 index
@@ -59,9 +118,8 @@
                  (clap)))
 
          (defvoice two 'xoxoxox :ratio 1/3 :ref one (clap)))
-
 ;; TODO rename me
-(def refrains (atom {}))
+
 
 (defn add-to-refrain [key refrain]
   (swap! refrains assoc key refrain))
@@ -92,6 +150,7 @@
 
 (defn parse-ref [ref] (str/split (str ref) #">>"))
 
+
 (defmacro refrain [symbol* & {:keys [durs on-event ref] :as opts}]
   #_(println (get @refrains (-> ref parse-ref first))
              (-> ref parse-ref second read-string inc))
@@ -101,7 +160,7 @@
           (get @refrains (str symbol*)) (list 'update-voice (str symbol*)
                                               (let [opts* (-> opts (dissoc :on-event :ref))]
                                                 `(assoc ~opts* :on-event
-                                                        ~(list 'fn '[{{:keys [index]} :data}]
+                                                        ~(list 'fn '[{{:keys [index ]} :data}]
                                                                on-event))) )
           (not ref)
           ;; directly call s/play!
@@ -122,12 +181,12 @@
         (list 'add-to-refrain (str symbol*) symbol*)))
 
 #_(refrain h
-         :durs [1/2]
-         :on-event (do (do (log/info "on-event called" index (now)) (s)) 9)
-         :ratio 1
-         :loop? true
-         :start-index 0
-         :tempo 60)
+           :durs [1/2]
+           :on-event (do (do (log/info "on-event called" index (now)) (s)) 9)
+           :ratio 1
+           :loop? true
+           :start-index 0
+           :tempo 60)
 (comment
   (swap! h assoc :durs [1/2])
 
@@ -156,8 +215,9 @@
                 2.0000000000000004])
 
 (comment
-  (require '[overtone.core :refer :all :exclude [now]]
+  (require '[overtone.core :refer :all :exclude [now on-event] :as o]
            '[time-time.standard :refer [wrap-at]])
+  (boot-internal-server)
   (defsynth s [freq 327] (out 0 (pan2 (* 0.2
                                          (env-gen (env-perc)  :action FREE )
                                          (square freq)))))
