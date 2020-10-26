@@ -20,3 +20,4 @@ dev/
 node_modules/
 build/browser/**
 !build/browser/browser-main.js
+umd/

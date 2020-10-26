@@ -79,7 +79,8 @@
 
 #?(:cljs
    ;; Adds apply-at to shim overtone.music.time/apply-at
-   (do (def transport (Tone/Transport.start))
+   (do
+     (def transport (Tone/Transport.start))
      (defn apply-at [time on-event-fn]
        (let [time (/ time 1000)]
          (.scheduleOnce transport on-event-fn  time)))))
