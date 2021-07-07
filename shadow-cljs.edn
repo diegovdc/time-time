@@ -13,4 +13,7 @@
             :modules {:browser-main {:entries [time-time.web]
                                      :init-fn time-time.web/init}}
             :devtools {:before-load time-time.web/stop
-                       :after-load time-time.web/start}}}}
+                       :after-load time-time.web/start}}
+  :lib {:target :node-library
+        :output-to "build/lib.js"
+        :exports {:init time-time.web/init-api}}}}

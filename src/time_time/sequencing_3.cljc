@@ -92,23 +92,41 @@
         on-event* (fn []
                     (let [v* @voice-atom
                           {:keys [on-event before-update index durs loop?]
-                           :or {before-update identity}} v]
+                           :or {before-update identity}} v ;; Can we use `v*` here?
+                          after-event #(do
+                                         (swap! voice-atom (partial
+                                                            update-voice
+                                                            before-update
+                                                            next-voice-state))
+                                         (if (schedule? (next-voice-state :index)
+                                                        (next-voice-state :durs)
+                                                        loop?)
+                                           (schedule! voice-atom)
+                                           (swap! voice-atom assoc :playing? false)))
+                          ;; NOTE assuming an on-event error, else playback
+                          ;; schedule! will stop recurring
+                          on-error (fn [error]
+                                     (timbre/error error)
+                                     (when (:prev-on-event v*)
+                                       ((:prev-on-event v*)
+                                        {:data v*
+                                         :voice voice-atom
+                                         :dur (-> v* :current-event :dur)})
+                                       (swap! voice-atom assoc
+                                              :on-event
+                                              (:prev-on-event v*))
+                                       (after-event)))]
                       (when (:playing? v*)
                         (timbre/debug "About to play event")
                         (try (do
                                (when (play-event? index durs loop?)
                                  ;; TODO current-event should always be present
-                                 (on-event {:data v* :voice voice-atom}))
-                               (swap! voice-atom (partial update-voice
-                                                          before-update
-                                                          next-voice-state))
-                               (if (schedule? (next-voice-state :index)
-                                              (next-voice-state :durs)
-                                              loop?)
-                                 (schedule! voice-atom)
-                                 (swap! voice-atom assoc :playing? false)))
-                             #?(:clj (catch Exception e (timbre/error e))
-                                :cljs (catch js/Error e (timbre/error e)) )))))]
+                                 (on-event {:data v*
+                                            :voice voice-atom
+                                            :dur (-> v* :current-event :dur)}))
+                               (after-event))
+                             #?(:clj (catch Exception e (on-error e))
+                                :cljs (catch js/Error e (on-error e)) )))))]
     (apply-at event-schedule on-event*)))
 
 (comment

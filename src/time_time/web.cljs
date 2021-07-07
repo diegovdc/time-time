@@ -1,5 +1,5 @@
 (ns time-time.web
-  (:require ["tone/build/esm/index.js" :as Tone]
+  (:require ["tone" :as Tone]
             [clojure.set :as set]
             [clojure.walk :as walk]
             [reagent.core :as r]
@@ -31,18 +31,18 @@
                                               :loop :loop?})
                             (update :id (comp keyword str))))))))
 
-(defn ^:export init [node-id]
+#_(defn ^:export init [node-id]
   (init-api)
   (start-tone)
   (when node-id
     (dom/render [start-button] (js/document.getElementById node-id)))
   (js/console.log "hello from time tiem"))
 
-(defn start []
+#_(defn start []
   (init "app")
   (js/console.log "starting") )
 
-(defn stop []
+#_(defn stop []
   (js/console.log "stoping") )
 
 (comment

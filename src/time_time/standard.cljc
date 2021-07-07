@@ -52,7 +52,7 @@
          rand-fn
          (+ bottom)))))
 
-(defn rotate [a n]
-  (let [l (count a)
+(defn rotate [coll n]
+  (let [l (count coll)
         off (mod (+ (mod n l) l) l)]
-    (concat (drop off a) (take off a))))
+    (concat (drop off coll) (take off coll))))
