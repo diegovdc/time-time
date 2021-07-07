@@ -1,8 +1,6 @@
 (ns time-time.dynacan.core
   (:require [clojure.spec.alpha :as spec]
-            [time-time.standard :refer [rotate]]
-            #?(:clj [taoensso.timbre :as log]
-               :cljs [taoensso.timbre :as log :include-macros true])))
+            [time-time.standard :refer [rotate]]))
 
 (spec/def ::index int?)
 #?(:clj (spec/def ::ratio rational?)

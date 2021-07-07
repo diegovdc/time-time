@@ -1,9 +1,9 @@
 (ns time-time.dynacan.players.gen-poly
-  (:require [taoensso.timbre :as log]
-            [time-time.dynacan.core :refer [find-relative-voice-first-event]]
-            [time-time.sequencing-3 :as s]
-            [time-time.standard :refer [now]]
-            [clojure.string :as str]))
+  (:require
+   [time-time.dynacan.core :refer [find-relative-voice-first-event]]
+   [time-time.sequencing-3 :as s]
+   [time-time.standard :refer [now wrap-at]]
+   [clojure.string :as str]))
 
 (declare before-update)
 
@@ -20,9 +20,9 @@
         (find-relative-voice-first-event events-from-cp ;; TODO should probably return the start time of the voice
                                          ref-voice
                                          {:durs durs :cp cp :ratio ratio :loop? loop?})]
-    (log/debug "adding voice... cp-at ref-voice index"
-               (ref-voice :index)
-               (+ events-from-cp (ref-voice :index)))
+    #_(log/debug "adding voice... cp-at ref-voice index"
+                 (ref-voice :index)
+                 (+ events-from-cp (ref-voice :index)))
     (s/play! durs
              on-event
              :ratio ratio
@@ -63,46 +63,66 @@
 
 (defonce refrains (atom {}))
 
+(-> @refrains)
 
-(defmacro on-event [f-body]
-  (list 'fn '[{{:keys [index]} :data}] f-body))
+(defmacro on-event
+  "Simpley passes the `:keys` to the function"
+  [f-body]
+  (list 'fn '[{{:keys [index]} :data dur :dur}]
+        (list 'let ['at-index #(wrap-at 'index %)] f-body)))
+
+(defn backup-on-event [config]
+  (assoc config :prev-on-event (:on-event config)))
 
 (defn update-refrain
   ([id key val] (update-refrain id #(assoc % key val)))
   ([id update-fn]
-   (swap! refrains update id #(do (swap! % update-fn) %))))
+   (swap! refrains update id #(do (swap! % (comp update-fn backup-on-event)) %))))
+
+
 
 (defn ref-rain [& {:keys [id durs on-event loop? ref distance]
                    :or {loop? true
                         distance 1}
                    :as config}]
-  (cond (and (@refrains id) (-> @refrains id deref :playing?))
-        (update-refrain id #(merge % config))
-        (and (@refrains ref) (-> @refrains ref deref :playing?))
-        (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
-          (swap! refrains assoc id voice))
-        :else
-        (let [voice (s/play! durs on-event :loop? loop?)]
-          (swap! refrains assoc id voice))))
+  (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))]
+    (cond
+      existing-voice? (update-refrain id #(merge % config))
+
+      (and (@refrains ref) (-> @refrains ref deref :playing?))
+      (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
+        (swap! refrains assoc id voice))
+
+      :else
+      (let [voice (s/play! durs on-event :loop? loop? :tempo (config :tempo 60))]
+        (swap! refrains assoc id voice)))))
+(comment
+  (require '[overtone.core :refer :all :exclude [now on-event] :as o]
+           '[time-time.standard :refer [wrap-at]])
+  (boot-internal-server)
+  (defsynth s [freq 327] (out 0 (pan2 (* 0.2
+                                         (env-gen (env-perc)  :action FREE )
+                                         (square freq)))))
+  (s))
 
 (comment
-  (do (ref-rain :id ::v1
+  (do (ref-rain :id ::v4
                 :durs [1/3 1/2 1/5]
                 :on-event (on-event (s 833))
-                :loop? false)
-      (ref-rain :id ::v2
-                :ref ::v1
-                :durs [1/2 1/2 1/2 1]
-                :cp 1
-                :on-event (on-event (s (rand-nth [700])))
-                :ratio 1/3
-                :loop? false)))
+                :loop? true))
+  (ref-rain :id ::v2
+            :ref ::v4
+            :durs [1/2 1/2]
+            :cp 1
+            :on-event (on-event (s (wrap-at index [701 700])))
+            :ratio 1/20
+            :loop? true))
 (comment (o/stop))
 #_(add-to! (deref (@refrains ::v1)) 2 (on-event (s 700))  {:durs [1 2] :ratio 1/3 :loop? true})
 #_(add-to! (deref (@refrains ::v1)) 3
-         (on-event (when (= 0 (mod index 10))
-                     (s (rand-nth [333 400]))))
-         {:durs [2 3] :ratio 1/5 :loop? true})
+           (on-event (when (= 0 (mod index 10))
+                       (s (rand-nth [333 400]))))
+           {:durs [2 3] :ratio 1/5 :loop? true})
 
 
 
@@ -124,11 +144,6 @@
 (defn add-to-refrain [key refrain]
   (swap! refrains assoc key refrain))
 
-(defn define-ref-voice [x]
-  (def x 5))
-
-(define-ref-voice 'g )
-
 (defmacro refrain-a [symbol* & {:keys [durs on-event ref] :as opts}]
   #_(println (get @refrains (-> ref parse-ref first))
              (-> ref parse-ref second read-string inc))
@@ -146,7 +161,17 @@
 
 (get @refrains "h")
 
-(reset! refrains {})
+(defn stop
+  ([]
+   (doseq [id (keys @refrains)] (update-refrain id :playing? false))
+   (doseq [id (keys @refrains)] (update-refrain id :playing? false)))
+  ([id]
+   (cond (and (@refrains id) (:playing? (@refrains id)))
+         (update-refrain id :playing? false)
+         (@refrains id) (println "refrain already stopped")
+         :else (println "Could not find refrain with id: " id))))
+
+
 
 (defn parse-ref [ref] (str/split (str ref) #">>"))
 

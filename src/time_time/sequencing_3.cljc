@@ -11,7 +11,7 @@
       :cljs [taoensso.timbre :as timbre :include-macros true])))
 
 
-(declare schedule!)
+(declare schedule! get-current-dur-data)
 (defn play!
   "Gets a config and returns a `voice-atom` that will start playing,
   if `playing?` is true (default)"
@@ -36,6 +36,7 @@
                             :loop? loop?
                             :index start-index
                             :started-at start-time
+                            :current-event (get-current-dur-data tempo ratio durs start-index)
                             ;; maybe FIXME, perhaps `play!` should receive
                             ;; `elapsed-ms` instead of `elapsed`
                             :elapsed-ms (dur->ms elapsed tempo)
@@ -45,10 +46,14 @@
     (schedule! voice)
     voice))
 
+(defn get-current-dur-data [tempo ratio durs index]
+  (let [dur (-> (wrap-at index durs) (* ratio))
+        event-dur (dur->ms dur tempo)]
+    {:dur dur :event-dur event-dur}))
+
 (defn calculate-next-voice-state
   [{:keys [index durs elapsed-ms ratio tempo] :as voice}]
-  (let [dur (-> (wrap-at index durs) (* ratio))
-        event-dur (dur->ms dur tempo)
+  (let [{:keys [dur event-dur]} (get-current-dur-data tempo ratio durs index)
         updated-state {:index (inc index)
                        :elapsed-ms (+ elapsed-ms event-dur)
                        :current-event {:dur-ms event-dur :dur dur}}]
