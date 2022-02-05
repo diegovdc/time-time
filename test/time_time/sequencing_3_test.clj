@@ -136,6 +136,25 @@
                           (assoc :dur (get-dur %)))
                      (a/<!! result-chan))))))
 
+    (testing "`:dur-ms` and `:dur` values are present and correct"
+      (let [{:keys [event-chan result-chan]} (async-events-tester
+                                              default-continue)
+            v (atom (assoc base-voice
+                           :started-at (+ 1 (now))
+                           :on-event (fn [{:keys [data voice dur dur-ms]}]
+                                       (println (keys data))
+                                       (a/>!! event-chan (select-keys
+                                                          data
+                                                          [:index :dur :dur-ms])))))]
+        (schedule! v)
+        (is (= [{:index 0, :dur 1, :dur-ms 10N}
+                {:index 1, :dur 2, :dur-ms 20N}
+                {:index 2, :dur 1, :dur-ms 10N}
+                {:index 3, :dur 2, :dur-ms 20N}
+                {:index 4, :dur 1, :dur-ms 10N}
+                {:index 5, :dur 1, :dur-ms 10N}]
+               (a/<!! result-chan)))))
+
     (testing "The assc'ed value in `:on-event`, `:event-at`, which is a timestamp, occurs very close or on the expected interval. NOTE The interval from the last event onset to it's offset is missing. "
       (let [{:keys [event-chan result-chan]} (async-events-tester
                                               default-continue)

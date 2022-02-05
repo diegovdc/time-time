@@ -61,15 +61,15 @@
                                 [300 400]))) :loop? true ))
   (swap! v assoc :loop? false))
 
+(defmacro on-event [f-body]
+  `(fn [~'{{:keys [index dur dur-ms] :as data} :data}]
+     (let [~'at-index #(wrap-at ~'index %)] ~f-body)))
+
 (defonce refrains (atom {}))
 
-(-> @refrains)
+(comment ((on-event (at-index [1 2 3])) {:data {:index 1}})
+         (on-event (at-index [1 2 3])))
 
-(defmacro on-event
-  "Simpley passes the `:keys` to the function"
-  [f-body]
-  (list 'fn '[{{:keys [index]} :data dur :dur}]
-        (list 'let ['at-index #(wrap-at 'index %)] f-body)))
 
 (defn backup-on-event [config]
   (assoc config :prev-on-event (:on-event config)))
@@ -79,23 +79,30 @@
   ([id update-fn]
    (swap! refrains update id #(do (swap! % (comp update-fn backup-on-event)) %))))
 
-
+(defn active-refrains [refrains]
+  (->> refrains
+       (filter (comp :playing? deref second))
+       (map first)))
 
 (defn ref-rain [& {:keys [id durs on-event loop? ref distance]
                    :or {loop? true
                         distance 1}
                    :as config}]
-  (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))]
-    (cond
-      existing-voice? (update-refrain id #(merge % config))
+  (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))
+        refrains*
+        (cond
+          existing-voice? (update-refrain id #(merge % config))
 
-      (and (@refrains ref) (-> @refrains ref deref :playing?))
-      (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
-        (swap! refrains assoc id voice))
+          (and (@refrains ref) (-> @refrains ref deref :playing?))
+          (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
+            (swap! refrains assoc id voice))
 
-      :else
-      (let [voice (s/play! durs on-event :loop? loop? :tempo (config :tempo 60))]
-        (swap! refrains assoc id voice)))))
+          :else
+          (let [voice (s/play! durs on-event :loop? loop?
+                               :tempo (config :tempo 60)
+                               :ratio (config :ratio 1))]
+            (swap! refrains assoc id voice)))]
+    (active-refrains refrains*)))
 (comment
   (require '[overtone.core :refer :all :exclude [now on-event] :as o]
            '[time-time.standard :refer [wrap-at]])
@@ -159,16 +166,20 @@
   (println opts)
   (swap! (get @refrains (str symbol*)) merge opts))
 
-(get @refrains "h")
+(keys @refrains)
 
+(defn reset [] (reset! refrains {}))
 (defn stop
   ([]
    (doseq [id (keys @refrains)] (update-refrain id :playing? false))
-   (doseq [id (keys @refrains)] (update-refrain id :playing? false)))
+   (reset))
   ([id]
-   (cond (and (@refrains id) (:playing? (@refrains id)))
+   (cond (and (@refrains id) (:playing? (deref (@refrains id))))
          (update-refrain id :playing? false)
-         (@refrains id) (println "refrain already stopped")
+
+         (@refrains id)
+         (println "refrain already stopped")
+
          :else (println "Could not find refrain with id: " id))))
 
 

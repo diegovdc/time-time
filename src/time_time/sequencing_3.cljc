@@ -88,15 +88,21 @@
      (def transport (Tone/Transport.start))
      (defn apply-at [time on-event-fn]
        (let [time (/ time 1000)]
-         (.scheduleOnce transport on-event-fn  time)))))
+         (.scheduleOnce transport on-event-fn time)))))
 
 (defn schedule! [voice-atom]
   (let [{:keys [started-at elapsed-ms] :as v} @voice-atom
-        event-schedule (timbre/spy (+ started-at elapsed-ms))
+        event-schedule (+ started-at elapsed-ms)
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
                     (let [v* @voice-atom
-                          {:keys [on-event before-update index durs loop?]
+                          {:keys [on-event
+                                  before-update
+                                  index
+                                  durs
+                                  loop?
+                                  tempo
+                                  ratio]
                            :or {before-update identity}} v ;; Can we use `v*` here?
                           after-event #(do
                                          (swap! voice-atom (partial
@@ -122,17 +128,28 @@
                                               (:prev-on-event v*))
                                        (after-event)))]
                       (when (:playing? v*)
-                        (timbre/debug "About to play event")
+                        #_(timbre/debug "About to play event")
                         (try (do
                                (when (play-event? index durs loop?)
-                                 ;; TODO current-event should always be present
-                                 (on-event {:data v*
-                                            :voice voice-atom
-                                            :dur (-> v* :current-event :dur)}))
+                                 (let [{:keys [dur event-dur]}
+                                       (get-current-dur-data tempo ratio durs index)
+]
+
+                                   (on-event {:data (assoc v*
+                                                           :dur dur
+                                                           :dur-ms event-dur)
+                                              :voice voice-atom})))
                                (after-event))
                              #?(:clj (catch Exception e (on-error e))
                                 :cljs (catch js/Error e (on-error e)) )))))]
     (apply-at event-schedule on-event*)))
+
+
+(comment
+  (play! [1 2 3 1]
+         #(-> % :dur-ms println)
+         :tempo 120
+         :loop? false))
 
 (comment
   (apply-at (+ 1000 (now)) println "hola"))
