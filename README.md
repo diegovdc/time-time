@@ -1,10 +1,22 @@
 # time-tiem
 
-A Polychronic library for sequencing musical/rhythmic events.
+A Polychronic library for precisely sequencing events in time.
+
+The aim of `time-tiem` is to develop low-ish level composable functions for the flexible development of higher level sequencers that can do anything from common sequencing tasks to highly coordinated polytemporality. 
+
+The aim includes the development of such higher level constructs. 
+
+It is important to note that these sequencing tools are agnostic of medium, so it is possible to sequence audio, video, text or whichever thing that can be put into a function call.
+
+
+
+
 
 ## Usage
 
-The (currently) main function to perform sequencing is `ref-rain`.
+### ref-rain
+
+The focus of `ref-rain` is to provide a good live coding experience by allowing the sequencer to be modified in real time without losing track of the following events in it's timeline. 
 
 ``` clojure
 (require '[time-time.dynacan.players.gen-poly :as gp])
@@ -99,6 +111,10 @@ echoic distance son datos q se pueden usar!
 //////
 event<->cp
 -->
+
+## Note
+This library is a work in progress and mostly a workshop for myself, so the code is not polished as it should. If you are using this library, feel free to let make me aware of so that I can take more care of the code and the documentation.
+
 
 ## License
 
