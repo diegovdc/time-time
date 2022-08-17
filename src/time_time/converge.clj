@@ -25,7 +25,7 @@
                                                        vals
                                                        (apply +)
                                                        (- total-dur))
-                                       last-event {:dur (* -1 remainder)
+                                        last-event {:dur (* -1 remainder)
                                                     :elapsed (+ (:dur (last voice))
                                                                 (:elapsed (last voice)))
                                                     :remainder? true}]
@@ -33,17 +33,14 @@
         offseted-voices (map-indexed add-cp-offset (rest vdurs))]
     (mapv add-remainder (conj offseted-voices longest))))
 
-
 (do
   (defn get-total-dur [slowest-tempo durs]
     (->> durs
          (map #(* slowest-tempo %))
-         (apply +))
-    )
+         (apply +)))
   (let [durs [1 1 2 3]
         slowest-tempo 1]
-    (get-total-dur slowest-tempo durs)
-    ))
+    (get-total-dur slowest-tempo durs)))
 
 (do
   (defn get-period-scaling-factor
@@ -62,9 +59,6 @@
       (->> durs (map #(* % scaling-factor))
            (apply +)
            (= period)))))
-
-
-
 
 (defn converge [{:keys [durs tempos cps period bpm] :or {cps [0]} :as data}]
   "Optional params:
@@ -104,13 +98,10 @@
                       :scaled? (not= 1 scaling-factor)
                       :scaling-factor scaling-factor})))
 
-
 (defn canon-dur
   "Returns the total duration of the canon in seconds"
   [canon bpm]
   (-> canon meta :scaled-dur (dur->sec bpm)))
-
-
 
 (comment
   (def canon (converge {:durs (flatten (repeat 300 [1/4 1]))
@@ -136,7 +127,6 @@
   (canon-3)
   (canon-dur canon-2 60))
 
-
 (comment ;; test that all voices have a remainder and their duration is the same
   (->> @user/data :canon user/spy
        (map (comp #(apply + %)
@@ -144,8 +134,6 @@
                   vals
                   last))
        (apply =)))
-
-
 
 (comment
   ;; nucleo del converge original traducido a clj

@@ -2,7 +2,6 @@
   (ns time-time.nanokontrol
     (:require [overtone.live :refer [on-event remove-event-handler]]))
 
-
   (def nanokontrol (atom {:f0 {:val 0 :action println}
                           :k0 {:val 0 :action println}
                           :f1 {:val 0 :action println}
@@ -19,7 +18,6 @@
                           :k6 {:val 0 :action println}
                           :f7 {:val 0 :action println}
                           :k7 {:val 0 :action println}}))
-
 
   (def fader-channels {0 :f0
                        1 :f1
@@ -77,11 +75,8 @@
                    ((get-action state-atom channel) (-> @state-atom channel :val))))
                ::knobs)))
 
-
-
   (defn set-action* [controller fader action]
     (swap! controller #(assoc-in % [fader :action] action)))
-
 
   (def set-action (partial set-action* nanokontrol))
 
@@ -89,11 +84,8 @@
     (setup-fader-listeners nanokontrol)
     (setup-knob-listeners nanokontrol))
 
-
   (defn stop! []
     (remove-event-handler ::faders)
     (remove-event-handler ::knobs))
 
-
-  (start!)
-  )
+  (start!))

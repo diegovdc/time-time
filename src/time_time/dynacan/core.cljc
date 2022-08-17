@@ -11,7 +11,6 @@
 (spec/def ::voice (spec/keys :req-un [::index ::ratio ::elapsed]
                              :opt-un [::interval-from-cp ::events-from-cp]))
 
-
 (defn get-event-at
   "Returns a map with the duration of the event and the time elapsed (0 based)
   at which the event will happen"
@@ -72,8 +71,8 @@
   Options:
   `:loop?` Whether the sequence can start at a point prior to `index` 0, which means that the sequence needs to loop to reach the `cp`"
     [ratio durs cp cp-elapsed & {:keys [loop? start-index]
-                                    :or {loop? true
-                                         start-index 0}}]
+                                 :or {loop? true
+                                      start-index 0}}]
     (let [durs-size (count durs)
           pcy-end (get-partial-cycle-durs
                    0
@@ -90,13 +89,13 @@
                      durs
                      durs-size
                      cp-elapsed)
-          loop-cycle? (and loop? (false? (pcy-end :completed-all)) )
+          loop-cycle? (and loop? (false? (pcy-end :completed-all)))
           index (if loop-cycle?
                   (pcy-start :index)
                   (pcy-end :index))
           elapsed (if loop-cycle?
-                       (pcy-start :elapsed)
-                       (pcy-end :elapsed))
+                    (pcy-start :elapsed)
+                    (pcy-end :elapsed))
           interval-from-cp (- cp-elapsed elapsed)
           start-index (mod index durs-size)]
       {:ratio ratio
@@ -126,19 +125,19 @@
   (* dur (/ 1 ratio)))
 
 (defn modulo-cp
-    "Finds the `cp` in modulo form for given the
+  "Finds the `cp` in modulo form for given the
   `current-index` and the `events-from-cp`"
-    [ref-durs ref-current-index events-from-cp]
-    (mod (+ ref-current-index events-from-cp)
-         (count ref-durs)))
+  [ref-durs ref-current-index events-from-cp]
+  (mod (+ ref-current-index events-from-cp)
+       (count ref-durs)))
 
 (defn ensure-rel-voice-cp
-    "Makes sure that the relative voice has a definite cp, specially if `rel-voice-cp`
+  "Makes sure that the relative voice has a definite cp, specially if `rel-voice-cp`
   is not defined"
-    [current-ref-index ref-durs events-from-cp rel-voice-durs rel-voice-cp]
-    (if (and (= ref-durs rel-voice-durs) (nil? rel-voice-cp))
-      (modulo-cp ref-durs current-ref-index events-from-cp)
-      (or rel-voice-cp events-from-cp)))
+  [current-ref-index ref-durs events-from-cp rel-voice-durs rel-voice-cp]
+  (if (and (= ref-durs rel-voice-durs) (nil? rel-voice-cp))
+    (modulo-cp ref-durs current-ref-index events-from-cp)
+    (or rel-voice-cp events-from-cp)))
 
 (defn find-relative-voice-first-event
   "Calculates the first event at which the new voice will start in order for it

@@ -9,7 +9,6 @@
    [clojure.set :as set]
    [taoensso.timbre :as log]))
 
-
 (deftype std [canon-atoms]
   p/player
   (loop? [this] (doseq [voice-atom canon-atoms]
@@ -108,7 +107,6 @@
       add-delay-on-loop-repeat
       (update :events-from-cp dec)
       (update :interval-from-cp - dur)))
-
 
 (comment
   (require '[taoensso.timbre :as log])

@@ -18,7 +18,7 @@
   "Returns a function that takes events and tests if it should stop"
   [stop-chan index]
   (fn [event] (when (= (:index event) index)
-               (a/>!! stop-chan true))))
+                (a/>!! stop-chan true))))
 
 (deftest add-to!-test
   (let [make-ref-voice (fn [compiler-chan compile-index event-chan stop-fn]
@@ -32,7 +32,7 @@
                                   :tempo 2400))
         v2-durs [1 2]
         make-v2 (fn [v1 events-from-cp* event-chan & {:keys [cp loop?]
-                                                         :or {cp nil loop? false}}]
+                                                      :or {cp nil loop? false}}]
                   (add-to! @v1 events-from-cp*
                            (fn [{:keys [data]}]
                              (a/>!! event-chan (assoc data ::voice :v-2 ::now (now))))

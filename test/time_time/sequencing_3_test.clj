@@ -79,8 +79,7 @@
                                          :loop? false
                                          :started-at 0
                                          :elapsed-ms 0
-                                         :ratio 1/2}
-))))
+                                         :ratio 1/2}))))
     (is (= {:dur-ms 500N, :dur 1}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
@@ -116,7 +115,7 @@
                     :ratio 1
                     :playing? true}
         default-continue (fn [ev _] (< (ev :index)
-                                      (dec (count (base-voice :durs)))))]
+                                       (dec (count (base-voice :durs)))))]
     (testing "`:elapsed-ms` values are correct"
       (let [{:keys [event-chan result-chan]} (async-events-tester
                                               default-continue)

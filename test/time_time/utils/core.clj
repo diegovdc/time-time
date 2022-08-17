@@ -22,7 +22,6 @@
         (> x n) (+ x (->positive>0 n))
         :else n))
 
-
 (defn gen-ratio
   ([] (gen/fmap ->positive>0 (gen/ratio)))
   ([greater-than]
@@ -57,21 +56,20 @@
                                         :elapsed
                                         (:elapsed voice)))
                        :events-from-cp (if edq
-                                                    (dec edq)
-                                                    (:events-from-cp voice))
+                                         (dec edq)
+                                         (:events-from-cp voice))
                        :interval-from-cp (if (empty? res)
-                                          (voice :interval-from-cp)
-                                          (- (-> res
-                                                 last
-                                                 :interval-from-cp)
-                                             (-> res last :dur)))})))))))
-
+                                           (voice :interval-from-cp)
+                                           (- (-> res
+                                                  last
+                                                  :interval-from-cp)
+                                              (-> res last :dur)))})))))))
 
 (comment
   ;;test
   (get-next-n-events [1 1 1 1]
-   {:interval-from-cp 4 :elapsed 0 :index 0 :ratio 1 :events-from-cp 4}
-   4))
+                     {:interval-from-cp 4 :elapsed 0 :index 0 :ratio 1 :events-from-cp 4}
+                     4))
 
 (defn get-next-event [voice durs]
   (merge voice {:index (inc (:index voice))

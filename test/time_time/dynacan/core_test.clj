@@ -35,7 +35,7 @@
              (get-event-at 1/2 durs 6))))
     (testing "Can calculate the event at starting on an index other than `0`"
       (is (= {:current-dur 1 :elapsed 7}
-             (get-event-at 1 [1 3] 3 1 ))))))
+             (get-event-at 1 [1 3] 3 1))))))
 
 (deftest find-first-event-using-cp-test
   #_"Non generative, human readable tests"
@@ -277,7 +277,6 @@
       ratio-1 ratio-2 durs cp
       #_:loop? (rand-nth [true false])))))
 
-
 (defspec prop-events-from-cp 100
   (testing "Echoic distance event quantity is correctly calculated,
            so that if we iterate a voice starting on the first event
@@ -357,8 +356,7 @@
 
         ref-voice-cp-event (last (get-next-n-events ref-voice-durs
                                                     ref-voice-current-event
-                                                    interval-from-cp-qty))
-        ]
+                                                    interval-from-cp-qty))]
     {:dur-at-cp-is-correct?
      (= (wrap-at cp second-voice-durs) (:original-dur second-voice-at-cp-event))
      :interval-from-cp-is-0-at-cp (:interval-from-cp second-voice-at-cp-event)

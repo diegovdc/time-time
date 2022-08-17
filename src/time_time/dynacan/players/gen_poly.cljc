@@ -47,18 +47,16 @@
 ;;  compilar en  diversos momentos
 ;;  en diversos loops
 
-
 ;; hacer pruebas (combinaciones de loops, corrección del cp)
 ;; pensar en tiempo de reposo (remainder) entre voces (que sea opcional)
 ;; pensar otros modos de control de las densidades* (quizá otra función aparte)
 ;; comenzar a pensar en la sintaxis
 
-
 (comment
   (def v (s/play! [1 1 1 1]
                   (fn [{:keys [data]}]
                     (s (wrap-at (data :index)
-                                [300 400]))) :loop? true ))
+                                [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
 (defmacro on-event [f-body]
@@ -69,7 +67,6 @@
 
 (comment ((on-event (at-index [1 2 3])) {:data {:index 1}})
          (on-event (at-index [1 2 3])))
-
 
 (defn backup-on-event [config]
   (assoc config :prev-on-event (:on-event config)))
@@ -108,7 +105,7 @@
            '[time-time.standard :refer [wrap-at]])
   (boot-internal-server)
   (defsynth s [freq 327] (out 0 (pan2 (* 0.2
-                                         (env-gen (env-perc)  :action FREE )
+                                         (env-gen (env-perc)  :action FREE)
                                          (square freq)))))
   (s))
 
@@ -131,8 +128,6 @@
                        (s (rand-nth [333 400]))))
            {:durs [2 3] :ratio 1/5 :loop? true})
 
-
-
 (def upref update-refrain)
 
 (comment (upref ::v1 :loop? false)
@@ -146,7 +141,6 @@
 
          (defvoice two 'xoxoxox :ratio 1/3 :ref one (clap)))
 ;; TODO rename me
-
 
 (defn add-to-refrain [key refrain]
   (swap! refrains assoc key refrain))
@@ -182,10 +176,7 @@
 
          :else (println "Could not find refrain with id: " id))))
 
-
-
 (defn parse-ref [ref] (str/split (str ref) #">>"))
-
 
 (defmacro refrain [symbol* & {:keys [durs on-event ref] :as opts}]
   #_(println (get @refrains (-> ref parse-ref first))
@@ -196,8 +187,8 @@
           (get @refrains (str symbol*)) (list 'update-voice (str symbol*)
                                               (let [opts* (-> opts (dissoc :on-event :ref))]
                                                 `(assoc ~opts* :on-event
-                                                        ~(list 'fn '[{{:keys [index ]} :data}]
-                                                               on-event))) )
+                                                        ~(list 'fn '[{{:keys [index]} :data}]
+                                                               on-event))))
           (not ref)
           ;; directly call s/play!
           (list 'def symbol*
@@ -212,8 +203,7 @@
                           ~(deref (get @refrains (-> ref parse-ref first)))
                           ~(-> ref parse-ref second read-string)
                           ~(list 'fn '[{{:keys [index]} :data}] on-event)
-                          ~opts*
-                          ))))
+                          ~opts*))))
         (list 'add-to-refrain (str symbol*) symbol*)))
 
 #_(refrain h
@@ -255,7 +245,7 @@
            '[time-time.standard :refer [wrap-at]])
   (boot-internal-server)
   (defsynth s [freq 327] (out 0 (pan2 (* 0.2
-                                         (env-gen (env-perc)  :action FREE )
+                                         (env-gen (env-perc)  :action FREE)
                                          (square freq)))))
   (s)
   (s 777)
@@ -279,7 +269,7 @@
   (refrain h
            :durs [1/3 1/8 1/3 1/8]
            :on-event (do (log/info index (now))
-                         (when  (= 1 (wrap-at index [0 0 0 0 0 0 0 0 0 0 1 ]))
+                         (when  (= 1 (wrap-at index [0 0 0 0 0 0 0 0 0 0 1]))
                            (s (* 300
                                  #_(wrap-at index [8 5 3 13])
                                  (wrap-at (* (wrap-at index [1]) index) fib-scale)))))
@@ -325,14 +315,14 @@
   #_(defn add-to! [v ech on-event config]
       (if (v :playing?)
         (add-to*! v ech on-event config)
-        (throw )))
+        (throw)))
 
   (do (swap! v1 assoc :playing? false)
       (swap! v2 assoc :playing? false))
 
   #_(def ref-voice (play! [1 2 3 5 6]))
 
-  (def voice-state {:durs [1],
+  (def voice-state {:durs [1]
                     :index 2 ;; sucede en: + started-at elapsed 750
                     :started-at 1597195400418
                     :current-event {:dur-ms 250N, :dur 1/4}
@@ -340,14 +330,11 @@
                     :ratio 1/4
                     :loop? true
                     :tempo 60
-                    :elapsed 500N} )
-
+                    :elapsed 500N})
 
   (add-to v1 :id 1 2 (fn [_] (println "segunda voz")))
 
-  cp @ v1 (- 5 2)
-
-
+  cp @v1 (- 5 2)
 
   (defn add-to [ref-voice id cp ratio on-event])
 
@@ -357,5 +344,6 @@
 
   (def third-voice (add-to! ref-voice :cp 3 :durs [1 2 3 4]))
 
-  (hush! :v1)
-  )
+  (hush! :v1))
+
+

@@ -38,13 +38,13 @@
 ;;;;;;;;;
 
     #_(testing "`canon-dur` for all voices is the same"
-      (let [{:keys [event-chan result-chan]} (async-events-tester end-of-canon)]
-        (std! [1 1 1 3 4] [1 2 4 7 9] 3
-              (fn [{:keys [data]}] (a/>!! event-chan data))
-              :tempo 6000)
-        (is (apply = (->> (a/<!! result-chan)
-                          (filter #(-> % :index (= 0)))
-                          (map :canon-dur))))))
+        (let [{:keys [event-chan result-chan]} (async-events-tester end-of-canon)]
+          (std! [1 1 1 3 4] [1 2 4 7 9] 3
+                (fn [{:keys [data]}] (a/>!! event-chan data))
+                :tempo 6000)
+          (is (apply = (->> (a/<!! result-chan)
+                            (filter #(-> % :index (= 0)))
+                            (map :canon-dur))))))
 
     (testing "`total-dur` for all voices is different"
       (let [{:keys [event-chan result-chan]} (async-events-tester end-of-canon)]
@@ -100,7 +100,6 @@
                                                 max* (apply max args)
                                                 avg (/ (+ min* max*) 2)]
                                             (close-to avg 10 max*))))))))))))
-
 
 (defn get-cp-events [durs cp values]
   (let [len (count durs)]

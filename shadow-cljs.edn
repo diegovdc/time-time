@@ -9,7 +9,7 @@
  {:browser {:target :browser
             :output-dir "build/browser"
             :asset-path "/"
-            :js-options {:js-provider :shadow }
+            :js-options {:js-provider :shadow}
             :modules {:browser-main {:entries [time-time.web]
                                      :init-fn time-time.web/init}}
             :devtools {:before-load time-time.web/stop
@@ -17,3 +17,4 @@
   :lib {:target :node-library
         :output-to "build/lib.js"
         :exports {:init time-time.web/init-api}}}}
+

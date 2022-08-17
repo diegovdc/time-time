@@ -10,7 +10,6 @@
    #?(:clj [taoensso.timbre :as timbre]
       :cljs [taoensso.timbre :as timbre :include-macros true])))
 
-
 (declare schedule! get-current-dur-data)
 (defn play!
   "Gets a config and returns a `voice-atom` that will start playing,
@@ -64,7 +63,6 @@
   played."
   [index durs loop?]
   (or (< index (count durs)) loop?))
-
 
 (defn schedule?
   "Based on the index, determine if a voice has an event that should be
@@ -132,8 +130,7 @@
                         (try (do
                                (when (play-event? index durs loop?)
                                  (let [{:keys [dur event-dur]}
-                                       (get-current-dur-data tempo ratio durs index)
-]
+                                       (get-current-dur-data tempo ratio durs index)]
 
                                    (on-event {:data (assoc v*
                                                            :dur dur
@@ -141,9 +138,8 @@
                                               :voice voice-atom})))
                                (after-event))
                              #?(:clj (catch Exception e (on-error e))
-                                :cljs (catch js/Error e (on-error e)) )))))]
+                                :cljs (catch js/Error e (on-error e)))))))]
     (apply-at event-schedule on-event*)))
-
 
 (comment
   (play! [1 2 3 1]

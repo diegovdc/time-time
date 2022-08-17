@@ -32,18 +32,18 @@
                             (update :id (comp keyword str))))))))
 
 #_(defn ^:export init [node-id]
-  (init-api)
-  (start-tone)
-  (when node-id
-    (dom/render [start-button] (js/document.getElementById node-id)))
-  (js/console.log "hello from time tiem"))
+    (init-api)
+    (start-tone)
+    (when node-id
+      (dom/render [start-button] (js/document.getElementById node-id)))
+    (js/console.log "hello from time tiem"))
 
 #_(defn start []
-  (init "app")
-  (js/console.log "starting") )
+    (init "app")
+    (js/console.log "starting"))
 
 #_(defn stop []
-  (js/console.log "stoping") )
+    (js/console.log "stoping"))
 
 (comment
   (def synth (.toDestination (Tone/Synth.)))

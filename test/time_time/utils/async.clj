@@ -42,8 +42,6 @@
      :result-chan result-chan
      :stop-chan stop-chan}))
 
-
-
 (comment
   (def my-chan (a/chan))
   (def my-chan2 (a/chan))
