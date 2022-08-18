@@ -59,14 +59,16 @@
                                 [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
-(defmacro on-event [f-body]
+(defmacro on-event [& forms]
   `(fn [~'{{:keys [index dur dur-ms] :as data} :data}]
-     (let [~'at-index #(wrap-at ~'index %)] ~f-body)))
+     (let [~'at-index #(wrap-at ~'index %)] ~@forms)))
 
 (defonce refrains (atom {}))
 
-(comment ((on-event (at-index [1 2 3])) {:data {:index 1}})
-         (on-event (at-index [1 2 3])))
+(comment
+  ((on-event (at-index [1 2 3])) {:data {:index 1}})
+  (on-event (at-index [1 2 3])
+            (at-index [1 2 3])))
 
 (defn backup-on-event [config]
   (assoc config :prev-on-event (:on-event config)))
