@@ -81,6 +81,7 @@
        (filter (comp :playing? deref second))
        (map first)))
 
+(declare stop)
 (defn ref-rain [& {:keys [id durs on-event loop? ref distance]
                    :or {loop? true
                         distance 1}
@@ -97,16 +98,37 @@
           :else
           (let [voice (s/play! durs on-event :loop? loop?
                                :tempo (config :tempo 60)
-                               :ratio (config :ratio 1))]
+                               :ratio (config :ratio 1)
+                               :on-startup-error (fn [] (stop id)))]
             (swap! refrains assoc id voice)))]
     (active-refrains refrains*)))
 (comment
-  (require '[overtone.core :refer :all :exclude [now on-event] :as o]
+  ;;  Tests for different errors on ref-rain/sequencing-3 stuff
+  (stop)
+  (def sec [1 2])                         ;; an empty vector will throw an error
+  (ref-rain
+   :id :hola
+   :durs [1]
+   :on-event (on-event
+              (println "holas" (at-index sec))
+              (println "bolas" (at-index sec))
+                  ;; throw at some point of the execution
+
+              #_(throw (ex-info "ups" {}))))
+  (ref-rain
+   :id :bola
+   :durs [1]
+   :on-event (on-event
+              (println "bola")
+              #_(throw (ex-info "ups" {})))))
+
+(comment
+  (require '[overtone.core :refer :exclude [now on-event] :as o]
            '[time-time.standard :refer [wrap-at]])
-  (boot-internal-server)
-  (defsynth s [freq 327] (out 0 (pan2 (* 0.2
-                                         (env-gen (env-perc)  :action FREE)
-                                         (square freq)))))
+  (o/boot-internal-server)
+  (o/defsynth s [freq 327] (o/out 0 (o/pan2 (* 0.2
+                                               (o/env-gen (o/env-perc)  :action o/FREE)
+                                               (o/square freq)))))
   (s))
 
 (comment
@@ -205,145 +227,3 @@
                           ~(list 'fn '[{{:keys [index]} :data}] on-event)
                           ~opts*))))
         (list 'add-to-refrain (str symbol*) symbol*)))
-
-#_(refrain h
-           :durs [1/2]
-           :on-event (do (do (log/info "on-event called" index (now)) (s)) 9)
-           :ratio 1
-           :loop? true
-           :start-index 0
-           :tempo 60)
-(comment
-  (swap! h assoc :durs [1/2])
-
-  (name `h)
-  (swap! h assoc :durs [1])
-  (-> refrains deref)
-  (reset! refrains {})
-  (swap! h  merge {:durs [1 2]})
-  (swap! refrains dissoc "h2"))
-
-(def fib-scale [1.1459102934487975
-                1.2360828548001543
-                1.3262554161515112
-                1.3819820590666498
-                1.4721546204180067
-                1.5278812633331453
-                1.583607906248284
-                1.6180469715698396
-                1.7082195329211964
-                1.763946175836335
-                1.8196728187514737
-                1.8541118840730293
-                1.909838526988168
-                1.9442775923097235
-                1.9787166576312791
-                2.0000000000000004])
-
-(comment
-  (require '[overtone.core :refer :all :exclude [now on-event] :as o]
-           '[time-time.standard :refer [wrap-at]])
-  (boot-internal-server)
-  (defsynth s [freq 327] (out 0 (pan2 (* 0.2
-                                         (env-gen (env-perc)  :action FREE)
-                                         (square freq)))))
-  (s)
-  (s 777)
-  (refrain h3
-           :ref h>>1
-           :durs [1 1/3 1]
-           :on-event (s (* (rand-nth [2 1]) (wrap-at index [777 888 600 500 666 400])))
-           :ratio 3/8
-           :loop? true
-           :start-index 0)
-  (refrain h2
-           :ref h>>1
-           :durs [1/5 1 1/5 1 1/5 1/8]
-           :on-event (when  (= 1 (wrap-at index [1 0 0 0 0 0 0]))
-                       (s (* (wrap-at index [21/3 8/2 5/3])
-                             300
-                             (wrap-at (* index 24) fib-scale))))
-           :ratio (+ 1 (* 1/8 618/1000))
-           :loop? false
-           :start-index 0)
-  (refrain h
-           :durs [1/3 1/8 1/3 1/8]
-           :on-event (do (log/info index (now))
-                         (when  (= 1 (wrap-at index [0 0 0 0 0 0 0 0 0 0 1]))
-                           (s (* 300
-                                 #_(wrap-at index [8 5 3 13])
-                                 (wrap-at (* (wrap-at index [1]) index) fib-scale)))))
-           :ratio 1
-           :loop? false
-           :start-index 0
-           :tempo 80)
-
-  (stop)
-  (defn prolong
-    "Calculate nearest position if voice would be playing"
-    ;; WIP
-    [v]
-    ;; NOTE Pseudo-code, doesn't work!
-    (loop [v* v]
-      (if (>= (:elapsed v*) (now))
-        v*
-        (recur (get-next-event v))))))
-(now)
-(comment
-  ;; [[durs]]
-;;;  ref-voice
-;;; find-first sirve para durs distintas
-
-  (gen-poly [{:r 1 :xo 'xoxoxox :ref? true}
-             {:r 1 :durs [3 4] :cp 2}
-             {:r 2 :durs [1 2 3 4] :cp 1}])
-
-  (def v1 (s/play! [1 1 1]
-                   (fn [{:keys [data]}] (log/info "v1" (:index  data) (now)))
-                   :loop? true
-                   :ratio 1))
-  (refrain :durs [1 1 1]
-           :on-event (log/info "v1" dur index (now))
-           :fx (-> x y z)
-           :loop? true
-           :ratio 1)
-
-  (def v2 (add-to! @v1 5
-                   (fn [{:keys [data]}] (log/info "v2" (:index  data) (now)))
-                   {:durs [1 2] :ratio 1/3 :cp 0 :loop? false}))
-
-  #_(defn add-to! [v ech on-event config]
-      (if (v :playing?)
-        (add-to*! v ech on-event config)
-        (throw)))
-
-  (do (swap! v1 assoc :playing? false)
-      (swap! v2 assoc :playing? false))
-
-  #_(def ref-voice (play! [1 2 3 5 6]))
-
-  (def voice-state {:durs [1]
-                    :index 2 ;; sucede en: + started-at elapsed 750
-                    :started-at 1597195400418
-                    :current-event {:dur-ms 250N, :dur 1/4}
-                    :playing? true
-                    :ratio 1/4
-                    :loop? true
-                    :tempo 60
-                    :elapsed 500N})
-
-  (add-to v1 :id 1 2 (fn [_] (println "segunda voz")))
-
-  cp @v1 (- 5 2)
-
-  (defn add-to [ref-voice id cp ratio on-event])
-
-  [4 7]
-
-  (def second-voice (add-to! ref-voice :id :v1 :cp-from (rand-int 4) :durs [1 2 3 4] :loop? false))
-
-  (def third-voice (add-to! ref-voice :cp 3 :durs [1 2 3 4]))
-
-  (hush! :v1))
-
-

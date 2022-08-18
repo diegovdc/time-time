@@ -16,7 +16,7 @@
   if `playing?` is true (default)"
   [durs on-event &
    {:keys [ratio tempo loop? start-index start-time elapsed playing?
-           before-update on-schedule extra-data]
+           before-update on-schedule extra-data on-startup-error]
     :or {ratio 1
          tempo 60
          loop? false
@@ -41,7 +41,8 @@
                             :elapsed-ms (dur->ms elapsed tempo)
                             :playing? playing?
                             :before-update before-update
-                            :on-schedule on-schedule}))]
+                            :on-schedule on-schedule
+                            :on-startup-error on-startup-error}))]
     (schedule! voice)
     voice))
 
@@ -116,27 +117,35 @@
                           ;; schedule! will stop recurring
                           on-error (fn [error]
                                      (timbre/error error)
-                                     (when (:prev-on-event v*)
-                                       ((:prev-on-event v*)
-                                        {:data v*
-                                         :voice voice-atom
-                                         :dur (-> v* :current-event :dur)})
-                                       (swap! voice-atom assoc
-                                              :on-event
-                                              (:prev-on-event v*))
-                                       (after-event)))]
+                                     (cond
+                                       (:prev-on-event v*)
+                                       (try
+                                         ((:prev-on-event v*)
+                                          {:data v*
+                                           :voice voice-atom
+                                           :dur (-> v* :current-event :dur)})
+                                         (swap! voice-atom assoc
+                                                :on-event
+                                                (:prev-on-event v*))
+                                         (catch Exception _ (timbre/error "Can not recover from error"))
+                                         (finally (after-event)))
+
+                                       (zero? (:index v*))
+                                       ((:on-startup-error v*))
+
+                                       ;; probably when there is no `:prev-on-event` and `:index` is not zero.
+                                       :else (after-event)))]
                       (when (:playing? v*)
                         #_(timbre/debug "About to play event")
-                        (try (do
-                               (when (play-event? index durs loop?)
-                                 (let [{:keys [dur event-dur]}
-                                       (get-current-dur-data tempo ratio durs index)]
+                        (try (when (play-event? index durs loop?)
+                               (let [{:keys [dur event-dur]}
+                                     (get-current-dur-data tempo ratio durs index)]
 
-                                   (on-event {:data (assoc v*
-                                                           :dur dur
-                                                           :dur-ms event-dur)
-                                              :voice voice-atom})))
-                               (after-event))
+                                 (on-event {:data (assoc v*
+                                                         :dur dur
+                                                         :dur-ms event-dur)
+                                            :voice voice-atom})))
+                             (after-event)
                              #?(:clj (catch Exception e (on-error e))
                                 :cljs (catch js/Error e (on-error e)))))))]
     (apply-at event-schedule on-event*)))
