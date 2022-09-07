@@ -5,7 +5,7 @@
   (:require
    [time-time.standard :refer [dur->ms wrap-at now]]
    #?(:clj
-      [overtone.music.time :refer [apply-at]]
+      [overtone.music.time :refer [apply-at stop-player]]
       :cljs ["tone/build/esm/index" :as Tone])
    #?(:clj [taoensso.timbre :as timbre]
       :cljs [taoensso.timbre :as timbre :include-macros true])))
@@ -74,11 +74,15 @@
 (defn update-voice [before-update voice-update data]
   (-> data
       (merge
-       ;; TODO calculate-next-voice-state should only return the fields below
-       (select-keys voice-update
-                    [:index
-                     :elapsed-ms
-                     :current-event]))
+        ;; TODO calculate-next-voice-state should only return the fields below
+       voice-update)
+      (assoc :previous-state
+             (select-keys data
+                          [:index
+                           :elapsed-ms
+                           :current-event]))
+      (cond-> (:updated? voice-update)
+        (dissoc :update :updated?))
       before-update))
 
 #?(:cljs
@@ -89,8 +93,25 @@
        (let [time (/ time 1000)]
          (.scheduleOnce transport on-event-fn time)))))
 
+(defn update-voice-config
+  [voice]
+  (let [modified-voice (merge voice
+                              (:previous-state voice)
+                              (:update voice))]
+    (assoc (update-voice identity
+                         (calculate-next-voice-state modified-voice)
+                         modified-voice)
+           :updated? true)))
+
+(defn maybe-update-voice [voice]
+  (if (:update voice)
+    (update-voice-config voice)
+    voice))
+
 (defn schedule! [voice-atom]
-  (let [{:keys [started-at elapsed-ms] :as v} @voice-atom
+  (let [v @voice-atom
+        v (maybe-update-voice v)
+        {:keys [started-at elapsed-ms]} v
         event-schedule (+ started-at elapsed-ms)
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
@@ -143,6 +164,7 @@
 
                                  (on-event {:data (assoc v*
                                                          :dur dur
+                                                         :dur-s (/ dur 1000)
                                                          :dur-ms event-dur)
                                             :voice voice-atom})))
                              (after-event)
@@ -157,7 +179,8 @@
          :loop? false))
 
 (comment
-  (apply-at (+ 1000 (now)) println "hola"))
+  (def job (apply-at (+ 5000 (now)) #(println "hola")))
+  (stop-player job))
 
 (comment
   (def voice-state {:durs [1]

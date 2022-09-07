@@ -102,7 +102,7 @@
   (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))
         refrains*
         (cond
-          existing-voice? (update-refrain id #(merge % config))
+          existing-voice? (update-refrain id #(assoc % :update config))
 
           (and (@refrains ref) (-> @refrains ref deref :playing?))
           (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
