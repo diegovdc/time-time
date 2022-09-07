@@ -59,14 +59,25 @@
                                 [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
-(defmacro on-event [& forms]
-  `(fn [~'{{:keys [index dur dur-ms] :as data} :data}]
-     (let [~'at-index #(wrap-at ~'index %)] ~@forms)))
+(defmacro on-event
+  "Provides
+  `index` (alias `i`),
+  `dur` (original duration),
+  `dur-s` (duration in seconds),
+  `dur-ms` (duration in milliseconds) and
+  `at-index` (alias `at-i`,function that get a value in a collection based on index, it wraps with `mod`)"
+  [& forms]
+  `(fn [~'{{:keys [index dur dur-ms dur-s] :as data} :data}]
+     (let [~'i ~'index
+           ~'at-index #(wrap-at ~'index %)
+           ~'at-i ~'at-index]
+       ~@forms)))
 
 (defonce refrains (atom {}))
 
 (comment
   ((on-event (at-index [1 2 3])) {:data {:index 1}})
+  ((on-event (at-i [1 2 3])) {:data {:index 1}})
   (on-event (at-index [1 2 3])
             (at-index [1 2 3])))
 
@@ -119,9 +130,9 @@
               #_(throw (ex-info "ups" {}))))
   (ref-rain
    :id :bola
-   :durs [1]
+   :durs [3]
    :on-event (on-event
-              (println "bola")
+              (println "bolas" index)
               #_(throw (ex-info "ups" {})))))
 
 (comment
