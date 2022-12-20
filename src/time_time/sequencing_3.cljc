@@ -148,7 +148,8 @@
                                          (swap! voice-atom assoc
                                                 :on-event
                                                 (:prev-on-event v*))
-                                         (catch Exception _ (timbre/error "Can not recover from error"))
+                                         #?(:clj (catch Exception _ (timbre/error "Can not recover from error"))
+                                            :cljs (catch js/Error _ (timbre/error "Can not recover from error")))
                                          (finally (after-event)))
 
                                        (zero? (:index v*))
@@ -164,7 +165,7 @@
 
                                  (on-event {:data (assoc v*
                                                          :dur dur
-                                                         :dur-s (/ dur 1000)
+                                                         :dur-s (/ event-dur 1000)
                                                          :dur-ms event-dur)
                                             :voice voice-atom})))
                              (after-event)
