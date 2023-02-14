@@ -75,7 +75,10 @@
   (-> data
       (merge
         ;; TODO calculate-next-voice-state should only return the fields below
-       voice-update)
+       (select-keys voice-update
+                    [:index
+                     :elapsed-ms
+                     :current-event]))
       (assoc :previous-state
              (select-keys data
                           [:index
