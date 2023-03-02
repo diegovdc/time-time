@@ -71,6 +71,8 @@
   [index durs loop?]
   (play-event? index durs loop?))
 
+(-> voice-update)
+
 (defn update-voice [before-update voice-update data]
   (-> data
       (merge
@@ -78,7 +80,10 @@
        (select-keys voice-update
                     [:index
                      :elapsed-ms
-                     :current-event]))
+                     :current-event
+                     :prev-on-event
+                     :on-event
+                     :refrain/config]))
       (assoc :previous-state
              (select-keys data
                           [:index
