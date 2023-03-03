@@ -71,8 +71,6 @@
   [index durs loop?]
   (play-event? index durs loop?))
 
-(-> voice-update)
-
 (defn update-voice [before-update voice-update data]
   (-> data
       (merge
