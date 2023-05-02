@@ -80,6 +80,7 @@
                      :elapsed-ms
                      :current-event
                      :prev-on-event
+                     :tempo
                      :on-event
                      :refrain/config]))
       (assoc :previous-state
