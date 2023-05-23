@@ -81,6 +81,8 @@
                      :current-event
                      :prev-on-event
                      :tempo
+                     :durs
+                     :loop?
                      :on-event
                      :refrain/config]))
       (assoc :previous-state
