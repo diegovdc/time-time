@@ -51,7 +51,14 @@
         event-dur (dur->ms dur tempo)]
     {:dur dur :event-dur event-dur}))
 
-(defn calculate-next-voice-state
+
+(defn calculate-next-voice-state-multi-pred [voice]
+  :durs)
+
+(defmulti calculate-next-voice-state
+  #'calculate-next-voice-state-multi-pred)
+
+(defmethod calculate-next-voice-state :durs
   [{:keys [index durs elapsed-ms ratio tempo] :as voice}]
   (let [{:keys [dur event-dur]} (get-current-dur-data tempo ratio durs index)
         updated-state {:index (inc index)
