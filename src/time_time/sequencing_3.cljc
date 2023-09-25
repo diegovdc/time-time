@@ -83,6 +83,7 @@
                      :tempo
                      :durs
                      :loop?
+                     :ratio
                      :on-event
                      :refrain/config]))
       (assoc :previous-state
