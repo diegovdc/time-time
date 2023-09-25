@@ -35,7 +35,10 @@
                             :loop? loop?
                             :index start-index
                             :started-at start-time
-                            :current-event (get-current-dur-data tempo ratio durs start-index)
+                            :current-event (get-current-dur-data {:tempo tempo
+                                                                  :ratio ratio
+                                                                  :durs durs
+                                                                  :index start-index})
                             ;; maybe FIXME, perhaps `play!` should receive
                             ;; `elapsed-ms` instead of `elapsed`
                             :elapsed-ms (dur->ms elapsed tempo)
@@ -46,21 +49,55 @@
     (schedule! voice)
     voice))
 
-(defn get-current-dur-data [tempo ratio durs index]
+(defn get-current-dur-data-multi-pred
+  [{:as voice :keys [durs]}]
+  (cond
+    (sequential? durs) :durs-vector
+    (fn? durs) :durs-gen-fn
+    :else (throw (ex-info "Unknown dur-data, cannot `get-current-dur-data-multi-pred`" voice))))
+
+(defmulti get-current-dur-data
+  #'get-current-dur-data-multi-pred)
+
+(defmethod get-current-dur-data :durs-vector
+  [{:keys [tempo ratio durs index] :as voice}]
   (let [dur (-> (wrap-at index durs) (* ratio))
         event-dur (dur->ms dur tempo)]
     {:dur dur :event-dur event-dur}))
 
+(do
+  ;; TODO left here, add test
+  (defmethod get-current-dur-data :durs-gen-fn
+    [{durs-fn :durs
+      :keys [tempo ratio index]
+      :as voice}]
+    (let [dur (durs-fn voice)
+          event-dur (dur->ms dur tempo)]
+      {:dur dur :event-dur event-dur}))
+
+  (map
+    (fn [i] (get-current-dur-data
+              {:tempo 60
+               :ratio 1/2
+               :index i
+               :durs (fn [{:keys [ratio index] :as _voice}]
+                       (let [durs* [1 2 3 4]]
+                         (* ratio (wrap-at index durs*))))}))
+    (range 5)))
+
 
 (defn calculate-next-voice-state-multi-pred [voice]
-  :durs)
+  (cond
+    (:durs voice) :durs-vector
+    :else (throw (ex-info "Unknown voice type, cannot `calculate-next-voice-state`"
+                          voice))))
 
 (defmulti calculate-next-voice-state
   #'calculate-next-voice-state-multi-pred)
 
-(defmethod calculate-next-voice-state :durs
-  [{:keys [index durs elapsed-ms ratio tempo] :as voice}]
-  (let [{:keys [dur event-dur]} (get-current-dur-data tempo ratio durs index)
+(defmethod calculate-next-voice-state :durs-vector
+  [{:keys [index elapsed-ms] :as voice}]
+  (let [{:keys [dur event-dur]} (get-current-dur-data voice)
         updated-state {:index (inc index)
                        :elapsed-ms (+ elapsed-ms event-dur)
                        :current-event {:dur-ms event-dur :dur dur}}]
@@ -178,7 +215,7 @@
                         #_(timbre/debug "About to play event")
                         (try (when (play-event? index durs loop?)
                                (let [{:keys [dur event-dur]}
-                                     (get-current-dur-data tempo ratio durs index)]
+                                     (get-current-dur-data v*)]
 
                                  (on-event {:data (assoc v*
                                                          :dur dur
