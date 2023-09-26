@@ -65,37 +65,13 @@
         event-dur (dur->ms dur tempo)]
     {:dur dur :event-dur event-dur}))
 
-(do
-  ;; TODO left here, add test
-  (defmethod get-current-dur-data :durs-gen-fn
-    [{durs-fn :durs
-      :keys [tempo ratio index]
-      :as voice}]
-    (let [dur (durs-fn voice)
-          event-dur (dur->ms dur tempo)]
-      {:dur dur :event-dur event-dur}))
+(defmethod get-current-dur-data :durs-gen-fn
+  [{:keys [durs tempo] :as voice}]
+  (let [dur (durs voice)
+        event-dur (dur->ms dur tempo)]
+    {:dur dur :event-dur event-dur}))
 
-  (map
-    (fn [i] (get-current-dur-data
-              {:tempo 60
-               :ratio 1/2
-               :index i
-               :durs (fn [{:keys [ratio index] :as _voice}]
-                       (let [durs* [1 2 3 4]]
-                         (* ratio (wrap-at index durs*))))}))
-    (range 5)))
-
-
-(defn calculate-next-voice-state-multi-pred [voice]
-  (cond
-    (:durs voice) :durs-vector
-    :else (throw (ex-info "Unknown voice type, cannot `calculate-next-voice-state`"
-                          voice))))
-
-(defmulti calculate-next-voice-state
-  #'calculate-next-voice-state-multi-pred)
-
-(defmethod calculate-next-voice-state :durs-vector
+(defn calculate-next-voice-state
   [{:keys [index elapsed-ms] :as voice}]
   (let [{:keys [dur event-dur]} (get-current-dur-data voice)
         updated-state {:index (inc index)
@@ -107,7 +83,11 @@
   "Based on the index, determine if a voice has an event that should be
   played."
   [index durs loop?]
-  (or (< index (count durs)) loop?))
+  (cond
+    (sequential? durs) (or (< index (count durs)) loop?)
+    (fn? durs) loop?
+    :else (throw (ex-info "Cannot play event. `durs` must be vector, a list or a function"
+                          {:durs durs}))))
 
 (defn schedule?
   "Based on the index, determine if a voice has an event that should be
@@ -234,6 +214,7 @@
          :loop? false))
 
 (comment
+  (timbre/set-level! :error)
   (def job (apply-at (+ 5000 (now)) #(println "hola")))
   (stop-player job))
 
