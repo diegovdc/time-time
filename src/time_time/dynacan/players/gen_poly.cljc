@@ -123,22 +123,23 @@
   (stop)
   (def sec [1 2])
   (-> @refrains) ;; an empty vector will throw an error
+  ;; A function
   (ref-rain
-   :id :hola
-   :durs [1]
-   :on-event (on-event
-              (println "holas" (at-index sec))
-              (println "bolas" (at-index sec))
+    :id :hola
+    :durs (fn [{:keys [index]}]
+            1)
+    :on-event (on-event
+                (println "holas" (at-index sec))
                 ;; throw at some point of the execution
 
-              #_(throw (ex-info "ups" {}))))
+                #_(throw (ex-info "ups" {}))))
   (ref-rain
-   :id :bola
-   :durs [1]
-   :on-stop (fn [_] (println "stopping" _))
-   :on-event (on-event
-              (println "bolas" index)
-              #_(throw (ex-info "ups" {})))))
+    :id :bola
+    :durs [1]
+    :on-stop (fn [_] (println "stopping" _))
+    :on-event (on-event
+                (println "bolas" index)
+                #_(throw (ex-info "ups" {})))))
 
 (comment
   (require '[overtone.core :refer :exclude [now on-event] :as o]
