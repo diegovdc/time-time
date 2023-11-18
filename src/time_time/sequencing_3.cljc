@@ -109,6 +109,7 @@
                      :loop?
                      :ratio
                      :on-event
+                     ;; TODO should refrain/config be updated?
                      :refrain/config]))
       (assoc :previous-state
              (select-keys data
