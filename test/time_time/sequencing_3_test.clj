@@ -1,47 +1,46 @@
 (ns time-time.sequencing-3-test
-  (:require [clojure.core.async :as a]
-            [clojure.test :refer [deftest is testing]]
-            [time-time.standard :refer [now]]
-            [time-time.sequencing-3
-             :refer
-             [calculate-next-voice-state play-event? schedule! schedule?]]
-            [time-time.utils.async :refer [async-events-tester]]
-            [time-time.utils.core :refer [close-to get-time-interval]]))
+  (:require
+   [clojure.core.async :as a]
+   [clojure.test :refer [deftest is testing]]
+   [time-time.sequencing-3
+    :refer
+    [calculate-next-voice-state play-event? schedule!]]
+   [time-time.standard :refer [now wrap-at]]
+   [time-time.utils.async :refer [async-events-tester]]
+   [time-time.utils.core :refer [close-to get-time-interval]]))
 
 (deftest calculate-next-voice-state-test
   (testing "Increases the `index` by one, updates the `elapsed` value and updates (or sets) the `current-event-dur`"
-    (is (=
-         {:durs [1 2 1],
-          :index 1,
-          :tempo 60,
-          :loop? false,
-          :started-at 0,
-          :elapsed-ms 1000,
-          :ratio 1,
-          :current-event {:dur-ms 1000, :dur 1}}
-         (calculate-next-voice-state {:durs [1 2 1]
-                                      :index 0
-                                      :tempo 60
-                                      :loop? false
-                                      :started-at 0
-                                      :elapsed-ms 0
-                                      :ratio 1})))
-    (is (=
-         {:durs [1 2 1],
-          :index 2,
-          :tempo 60,
-          :loop? false,
-          :started-at 0,
-          :elapsed-ms 3000,
-          :ratio 1,
-          :current-event {:dur-ms 2000, :dur 2}}
-         (calculate-next-voice-state {:durs [1 2 1],
-                                      :index 1,
-                                      :tempo 60,
-                                      :loop? false,
-                                      :started-at 0,
-                                      :elapsed-ms 1000,
-                                      :ratio 1}))))
+    (is (= {:durs [1 2 1],
+            :index 1,
+            :tempo 60,
+            :loop? false,
+            :started-at 0,
+            :elapsed-ms 1000,
+            :ratio 1,
+            :current-event {:dur-ms 1000, :dur 1}}
+           (calculate-next-voice-state {:durs [1 2 1]
+                                        :index 0
+                                        :tempo 60
+                                        :loop? false
+                                        :started-at 0
+                                        :elapsed-ms 0
+                                        :ratio 1})))
+    (is (= {:durs [1 2 1],
+            :index 2,
+            :tempo 60,
+            :loop? false,
+            :started-at 0,
+            :elapsed-ms 3000,
+            :ratio 1,
+            :current-event {:dur-ms 2000, :dur 2}}
+           (calculate-next-voice-state {:durs [1 2 1],
+                                        :index 1,
+                                        :tempo 60,
+                                        :loop? false,
+                                        :started-at 0,
+                                        :elapsed-ms 1000,
+                                        :ratio 1}))))
   (testing "`current-event-dur` is related to tempo"
     (is (= {:dur-ms 500N, :dur 1}
            (:current-event
@@ -84,6 +83,17 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :index 1
+                                         :tempo 120
+                                         :loop? false
+                                         :started-at 0
+                                         :elapsed-ms 0
+                                         :ratio 1/2})))))
+  (testing "`:durs` can be a function"
+    (is (= {:dur-ms 250N, :dur 1/2}
+           (:current-event
+            (calculate-next-voice-state {:durs (fn [{:keys [index ratio] :as _voice}]
+                                                 (* ratio (wrap-at index [1 2 1])))
+                                         :index 0
                                          :tempo 120
                                          :loop? false
                                          :started-at 0
@@ -140,8 +150,8 @@
                                               default-continue)
             v (atom (assoc base-voice
                            :started-at (+ 1 (now))
-                           :on-event (fn [{:keys [data voice dur dur-ms]}]
-                                       (println (keys data))
+                           :on-event (fn [{:keys [data _voice _dur _dur-ms]}]
+                                       #_(println (keys data))
                                        (a/>!! event-chan (select-keys
                                                           data
                                                           [:index :dur :dur-ms])))))]
@@ -154,7 +164,37 @@
                 {:index 5, :dur 1, :dur-ms 10N}]
                (a/<!! result-chan)))))
 
-    (testing "The assc'ed value in `:on-event`, `:event-at`, which is a timestamp, occurs very close or on the expected interval. NOTE The interval from the last event onset to it's offset is missing. "
+    (testing "`:durs` can be a function and `:dur-ms` and `:dur` values are present and correct"
+      (let [total-events 5
+            {:keys [event-chan result-chan]} (async-events-tester
+                                              (fn [ev _]
+                                                (println "continue")
+                                                (< (ev :index) total-events)))
+            v (atom {})
+            _ (reset! v (assoc base-voice
+                               :loop? true
+                               :durs (fn [{:keys [index ratio] :as _voice}]
+                                       (* ratio (wrap-at index [1 2 1 2 1 1])))
+                               :started-at (+ 1 (now))
+                               :on-event (fn [{:keys [data _voice _dur _dur-ms]}]
+                                           (println (keys data))
+                                           (a/>!! event-chan (select-keys
+                                                              data
+                                                              [:index :dur :dur-ms]))
+                                           (when (> (:index data) total-events)
+                                             (swap! v assoc
+                                                    :loop? false
+                                                    :playing? false)))))]
+        (schedule! v)
+        (is (= [{:index 0, :dur 1, :dur-ms 10N}
+                {:index 1, :dur 2, :dur-ms 20N}
+                {:index 2, :dur 1, :dur-ms 10N}
+                {:index 3, :dur 2, :dur-ms 20N}
+                {:index 4, :dur 1, :dur-ms 10N}
+                {:index 5, :dur 1, :dur-ms 10N}]
+               (a/<!! result-chan)))))
+
+    (testing "The assoc'ed value in `:on-event`, `:event-at`, which is a timestamp, occurs very close or on the expected interval. NOTE The interval from the last event onset to it's offset is missing. "
       (let [{:keys [event-chan result-chan]} (async-events-tester
                                               default-continue)
             v (atom (assoc base-voice

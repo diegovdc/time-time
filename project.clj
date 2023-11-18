@@ -10,4 +10,4 @@
                  ;; TODO maybe remove dependency of `overtone` in favor of `overtone.at-at`?
                  ;; This would require copying `overtone.music.time` somewhere
                  ;; because `apply-at` is very useful
-                 [overtone "0.10.6"]])
+                 [overtone/overtone "0.10.6"]])

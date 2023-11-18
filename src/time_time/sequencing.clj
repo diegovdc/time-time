@@ -1,14 +1,14 @@
 (ns time-time.sequencing
-  (:require [overtone.live :refer :all]))
+  (:require [overtone.core :as o]))
 
 (defn sequencer- [nome sequence* on-event state]
   (let [{:keys [start-at index repeat]} @state
         val* (first sequence*)]
     ;; FIXME `at` does not seem to do anything useful, see source
-    (at (nome (+ start-at (:elapsed val*)))
+    (o/at (nome (+ start-at (:elapsed val*)))
         (on-event val* index)
         (if-not (:remainder? val*)
-          (apply-by (nome (+ start-at (:elapsed (second sequence*))))
+          (o/apply-by (nome (+ start-at (:elapsed (second sequence*))))
                     sequencer-
                     nome
                     (rest sequence*)
@@ -16,7 +16,7 @@
                     [(do (swap! state #(update-in % [:index] inc))
                          state)])
           (if (not= 0 repeat)
-            (apply-by (nome (+ start-at (:elapsed val*) (:dur val*)))
+            (o/apply-by (nome (+ start-at (:elapsed val*) (:dur val*)))
                       sequencer-
                       nome
                       (@state :sequence)
@@ -67,17 +67,20 @@
 
 (comment
   (require '[time-time.converge :refer [converge]])
-  (def kick (freesound 2086))
-  (let [nome (metronome 120)]
+  (def kick (o/freesound 2086))
+  (def hh (o/freesound 178663))
+  (let [nome (o/metronome 120)]
     (->> (converge {:durs (repeat 6 1)
-                    :tempos [1]
+                    :tempos [4 7]
                     :cps [5]
                     :bpm 120
                     :period 20})
          (map (fn [voice] (sequencer
                            nome
                            voice
-                           (fn [vals index]
-                             (kick)
+                           (fn [{:keys [tempo-index]} index]
+                             (case tempo-index
+                               0 (kick)
+                               1 (hh))
                              nil)
                            {:repeat nil}))))))

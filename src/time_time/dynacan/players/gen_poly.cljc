@@ -59,14 +59,25 @@
                                 [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
-(defmacro on-event [& forms]
-  `(fn [~'{{:keys [index dur dur-ms] :as data} :data}]
-     (let [~'at-index #(wrap-at ~'index %)] ~@forms)))
+(defmacro on-event
+  "Provides
+  `index` (alias `i`),
+  `dur` (original duration),
+  `dur-s` (duration in seconds),
+  `dur-ms` (duration in milliseconds) and
+  `at-index` (alias `at-i`,function that get a value in a collection based on index, it wraps with `mod`)"
+  [& forms]
+  `(fn [~'{{:keys [index dur dur-ms dur-s] :as data} :data}]
+     (let [~'i ~'index
+           ~'at-index #(wrap-at ~'index %)
+           ~'at-i ~'at-index]
+       ~@forms)))
 
 (defonce refrains (atom {}))
 
 (comment
   ((on-event (at-index [1 2 3])) {:data {:index 1}})
+  ((on-event (at-i [1 2 3])) {:data {:index 1}})
   (on-event (at-index [1 2 3])
             (at-index [1 2 3])))
 
@@ -89,40 +100,46 @@
                         distance 1}
                    :as config}]
   (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))
-        refrains*
-        (cond
-          existing-voice? (update-refrain id #(merge % config))
+        refrains* (cond
+                    existing-voice? (update-refrain id #(assoc %
+                                                               :update config
+                                                               :refrain/config config))
 
-          (and (@refrains ref) (-> @refrains ref deref :playing?))
-          (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
-            (swap! refrains assoc id voice))
+                    (and (@refrains ref) (-> @refrains ref deref :playing?))
+                    (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
+                      (swap! voice assoc :refrain/config config)
+                      (swap! refrains assoc id voice))
 
-          :else
-          (let [voice (s/play! durs on-event :loop? loop?
-                               :tempo (config :tempo 60)
-                               :ratio (config :ratio 1)
-                               :on-startup-error (fn [] (stop id)))]
-            (swap! refrains assoc id voice)))]
+                    :else
+                    (let [voice (s/play! durs on-event :loop? loop?
+                                         :tempo (config :tempo 60)
+                                         :ratio (config :ratio 1)
+                                         :on-startup-error (fn [] (stop id)))]
+                      (swap! voice assoc :refrain/config config)
+                      (swap! refrains assoc id voice)))]
     (active-refrains refrains*)))
 (comment
   ;;  Tests for different errors on ref-rain/sequencing-3 stuff
   (stop)
-  (def sec [1 2])                         ;; an empty vector will throw an error
+  (def sec [1 2])
+  (-> @refrains) ;; an empty vector will throw an error
+  ;; A function
   (ref-rain
-   :id :hola
-   :durs [1]
-   :on-event (on-event
-              (println "holas" (at-index sec))
-              (println "bolas" (at-index sec))
-                  ;; throw at some point of the execution
+    :id :hola
+    :durs (fn [{:keys [index]}]
+            1)
+    :on-event (on-event
+                (println "holas" (at-index sec))
+                ;; throw at some point of the execution
 
-              #_(throw (ex-info "ups" {}))))
+                #_(throw (ex-info "ups" {}))))
   (ref-rain
-   :id :bola
-   :durs [1]
-   :on-event (on-event
-              (println "bola")
-              #_(throw (ex-info "ups" {})))))
+    :id :bola
+    :durs [1]
+    :on-stop (fn [_] (println "stopping" _))
+    :on-event (on-event
+                (println "bolas" index)
+                #_(throw (ex-info "ups" {})))))
 
 (comment
   (require '[overtone.core :refer :exclude [now on-event] :as o]
@@ -187,13 +204,20 @@
 (keys @refrains)
 
 (defn reset [] (reset! refrains {}))
+(defn- maybe-run-on-stop-fn
+  [refrain]
+  (let [on-stop (-> @refrain :refrain/config :on-stop)]
+    (when on-stop (on-stop @refrain))))
 (defn stop
   ([]
-   (doseq [id (keys @refrains)] (update-refrain id :playing? false))
+   (doseq [id (keys @refrains)]
+     (update-refrain id :playing? false)
+     (maybe-run-on-stop-fn (get @refrains id)))
    (reset))
   ([id]
    (cond (and (@refrains id) (:playing? (deref (@refrains id))))
-         (update-refrain id :playing? false)
+         (do (update-refrain id :playing? false)
+             (maybe-run-on-stop-fn (get @refrains id)))
 
          (@refrains id)
          (println "refrain already stopped")

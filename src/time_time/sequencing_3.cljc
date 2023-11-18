@@ -5,7 +5,7 @@
   (:require
    [time-time.standard :refer [dur->ms wrap-at now]]
    #?(:clj
-      [overtone.music.time :refer [apply-at]]
+      [overtone.music.time :refer [apply-at stop-player]]
       :cljs ["tone/build/esm/index" :as Tone])
    #?(:clj [taoensso.timbre :as timbre]
       :cljs [taoensso.timbre :as timbre :include-macros true])))
@@ -35,7 +35,10 @@
                             :loop? loop?
                             :index start-index
                             :started-at start-time
-                            :current-event (get-current-dur-data tempo ratio durs start-index)
+                            :current-event (get-current-dur-data {:tempo tempo
+                                                                  :ratio ratio
+                                                                  :durs durs
+                                                                  :index start-index})
                             ;; maybe FIXME, perhaps `play!` should receive
                             ;; `elapsed-ms` instead of `elapsed`
                             :elapsed-ms (dur->ms elapsed tempo)
@@ -46,14 +49,31 @@
     (schedule! voice)
     voice))
 
-(defn get-current-dur-data [tempo ratio durs index]
+(defn get-current-dur-data-multi-pred
+  [{:as voice :keys [durs]}]
+  (cond
+    (sequential? durs) :durs-vector
+    (fn? durs) :durs-gen-fn
+    :else (throw (ex-info "Unknown dur-data, cannot `get-current-dur-data-multi-pred`" voice))))
+
+(defmulti get-current-dur-data
+  #'get-current-dur-data-multi-pred)
+
+(defmethod get-current-dur-data :durs-vector
+  [{:keys [tempo ratio durs index] :as voice}]
   (let [dur (-> (wrap-at index durs) (* ratio))
         event-dur (dur->ms dur tempo)]
     {:dur dur :event-dur event-dur}))
 
+(defmethod get-current-dur-data :durs-gen-fn
+  [{:keys [durs tempo] :as voice}]
+  (let [dur (durs voice)
+        event-dur (dur->ms dur tempo)]
+    {:dur dur :event-dur event-dur}))
+
 (defn calculate-next-voice-state
-  [{:keys [index durs elapsed-ms ratio tempo] :as voice}]
-  (let [{:keys [dur event-dur]} (get-current-dur-data tempo ratio durs index)
+  [{:keys [index elapsed-ms] :as voice}]
+  (let [{:keys [dur event-dur]} (get-current-dur-data voice)
         updated-state {:index (inc index)
                        :elapsed-ms (+ elapsed-ms event-dur)
                        :current-event {:dur-ms event-dur :dur dur}}]
@@ -63,7 +83,11 @@
   "Based on the index, determine if a voice has an event that should be
   played."
   [index durs loop?]
-  (or (< index (count durs)) loop?))
+  (cond
+    (sequential? durs) (or (< index (count durs)) loop?)
+    (fn? durs) loop?
+    :else (throw (ex-info "Cannot play event. `durs` must be vector, a list or a function"
+                          {:durs durs}))))
 
 (defn schedule?
   "Based on the index, determine if a voice has an event that should be
@@ -74,11 +98,26 @@
 (defn update-voice [before-update voice-update data]
   (-> data
       (merge
-       ;; TODO calculate-next-voice-state should only return the fields below
+        ;; TODO calculate-next-voice-state should only return the fields below
        (select-keys voice-update
                     [:index
                      :elapsed-ms
-                     :current-event]))
+                     :current-event
+                     :prev-on-event
+                     :tempo
+                     :durs
+                     :loop?
+                     :ratio
+                     :on-event
+                     ;; TODO should refrain/config be updated?
+                     :refrain/config]))
+      (assoc :previous-state
+             (select-keys data
+                          [:index
+                           :elapsed-ms
+                           :current-event]))
+      (cond-> (:updated? voice-update)
+        (dissoc :update :updated?))
       before-update))
 
 #?(:cljs
@@ -89,8 +128,25 @@
        (let [time (/ time 1000)]
          (.scheduleOnce transport on-event-fn time)))))
 
+(defn update-voice-config
+  [voice]
+  (let [modified-voice (merge voice
+                              (:previous-state voice)
+                              (:update voice))]
+    (assoc (update-voice identity
+                         (calculate-next-voice-state modified-voice)
+                         modified-voice)
+           :updated? true)))
+
+(defn maybe-update-voice [voice]
+  (if (:update voice)
+    (update-voice-config voice)
+    voice))
+
 (defn schedule! [voice-atom]
-  (let [{:keys [started-at elapsed-ms] :as v} @voice-atom
+  (let [v @voice-atom
+        v (maybe-update-voice v)
+        {:keys [started-at elapsed-ms]} v
         event-schedule (+ started-at elapsed-ms)
         next-voice-state (calculate-next-voice-state v)
         on-event* (fn []
@@ -127,7 +183,8 @@
                                          (swap! voice-atom assoc
                                                 :on-event
                                                 (:prev-on-event v*))
-                                         (catch Exception _ (timbre/error "Can not recover from error"))
+                                         #?(:clj (catch Exception _ (timbre/error "Can not recover from error"))
+                                            :cljs (catch js/Error _ (timbre/error "Can not recover from error")))
                                          (finally (after-event)))
 
                                        (zero? (:index v*))
@@ -139,10 +196,11 @@
                         #_(timbre/debug "About to play event")
                         (try (when (play-event? index durs loop?)
                                (let [{:keys [dur event-dur]}
-                                     (get-current-dur-data tempo ratio durs index)]
+                                     (get-current-dur-data v*)]
 
                                  (on-event {:data (assoc v*
                                                          :dur dur
+                                                         :dur-s (/ event-dur 1000)
                                                          :dur-ms event-dur)
                                             :voice voice-atom})))
                              (after-event)
@@ -157,7 +215,9 @@
          :loop? false))
 
 (comment
-  (apply-at (+ 1000 (now)) println "hola"))
+  (timbre/set-level! :error)
+  (def job (apply-at (+ 5000 (now)) #(println "hola")))
+  (stop-player job))
 
 (comment
   (def voice-state {:durs [1]
