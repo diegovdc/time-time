@@ -73,13 +73,28 @@
            ~'at-i ~'at-index]
        ~@forms)))
 
-(defonce refrains (atom {}))
 
 (comment
   ((on-event (at-index [1 2 3])) {:data {:index 1}})
   ((on-event (at-i [1 2 3])) {:data {:index 1}})
   (on-event (at-index [1 2 3])
             (at-index [1 2 3])))
+
+(defmacro when-mod
+  "To be used within `on-event` as it assumes the existence of `index` in the context of the function"
+  [modulo index-set f-call]
+  `(when (~index-set (mod ~'index ~modulo))
+     ~f-call))
+
+(comment
+  (macroexpand-1 '(when-mod 5 #{0 3}
+                            (println "hola")))
+  (let [index 3] ;; `index` is expected in the context
+    (when-mod 5 #{0 3} (println "hola")))
+
+  ((on-event (when-mod 3 #{0} (println "hola " index))) {:data {:index 3}}))
+
+(defonce refrains (atom {}))
 
 (defn backup-on-event [config]
   (assoc config :prev-on-event (:on-event config)))
@@ -125,21 +140,21 @@
   (-> @refrains) ;; an empty vector will throw an error
   ;; A function
   (ref-rain
-    :id :hola
-    :durs (fn [{:keys [index]}]
-            1)
-    :on-event (on-event
-                (println "holas" (at-index sec))
+   :id :hola
+   :durs (fn [{:keys [index]}]
+           1)
+   :on-event (on-event
+              (println "holas" (at-index sec))
                 ;; throw at some point of the execution
 
-                #_(throw (ex-info "ups" {}))))
+              #_(throw (ex-info "ups" {}))))
   (ref-rain
-    :id :bola
-    :durs [1]
-    :on-stop (fn [_] (println "stopping" _))
-    :on-event (on-event
-                (println "bolas" index)
-                #_(throw (ex-info "ups" {})))))
+   :id :bola
+   :durs [1]
+   :on-stop (fn [_] (println "stopping" _))
+   :on-event (on-event
+              (println "bolas" index)
+              #_(throw (ex-info "ups" {})))))
 
 (comment
   (require '[overtone.core :refer :exclude [now on-event] :as o]
