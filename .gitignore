@@ -24,3 +24,4 @@ build/browser/**
 umd/
 .clj-kondo/
 .lsp/
+.cider-repl-history
