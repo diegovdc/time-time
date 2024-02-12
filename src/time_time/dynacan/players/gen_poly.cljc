@@ -59,23 +59,32 @@
                                 [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
+(defn- at-index*
+  "`offset` can be a function or a number"
+  ([index coll] (wrap-at index coll))
+  ([index offset coll] (if (fn? offset)
+                         (wrap-at (offset index) coll)
+                         (wrap-at (+ offset index) coll))))
+
 (defmacro on-event
   "Provides
   `index` (alias `i`),
   `dur` (original duration),
   `dur-s` (duration in seconds),
   `dur-ms` (duration in milliseconds) and
-  `at-index` (alias `at-i`,function that get a value in a collection based on index, it wraps with `mod`)"
+  `at-index` (alias `at-i`,function that get a value in a collection based on index, it wraps with `mod`)
+              can take an `offset` as the first argument and the collection as the second, and `offset` can be a function or a number"
   [& forms]
   `(fn [~'{{:keys [index dur dur-ms dur-s] :as data} :data}]
      (let [~'i ~'index
-           ~'at-index #(wrap-at ~'index %)
+           ~'at-index (partial at-index* ~'index)
            ~'at-i ~'at-index]
        ~@forms)))
 
 
 (comment
-  ((on-event (at-index [1 2 3])) {:data {:index 1}})
+  (macroexpand-1 '(on-event (at-index [1 2 3])))
+  ((on-event (at-index  #(- 1 %) [1 2 3])) {:data {:index 1}})
   ((on-event (at-i [1 2 3])) {:data {:index 1}})
   (on-event (at-index [1 2 3])
             (at-index [1 2 3])))
