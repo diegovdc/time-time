@@ -59,7 +59,7 @@
                                 [300 400]))) :loop? true))
   (swap! v assoc :loop? false))
 
-(defn- at-index*
+(defn at-index*
   "`offset` can be a function or a number"
   ([index coll] (wrap-at index coll))
   ([index offset coll] (if (fn? offset)
