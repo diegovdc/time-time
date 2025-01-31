@@ -84,7 +84,10 @@
         updated-state {:index (inc index)
                        :elapsed-dur (+ elapsed-dur dur)
                        :elapsed-ms (+ elapsed-ms event-dur)
-                       :current-event {:dur-ms event-dur :dur dur :cycle (quot elapsed-dur cycle-len)}}]
+                       :current-event {:dur-ms event-dur
+                                       :dur dur
+                                       :index index
+                                       :cycle (quot elapsed-dur cycle-len)}}]
     (merge voice updated-state)))
 
 (defn play-event?

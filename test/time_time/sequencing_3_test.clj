@@ -20,7 +20,7 @@
             :elapsed-ms 1000,
             :elapsed-dur 1
             :ratio 1,
-            :current-event {:dur-ms 1000, :dur 1 :cycle 0}}
+            :current-event {:dur-ms 1000, :dur 1 :index 0 :cycle 0}}
            (calculate-next-voice-state {:durs [1 2 1]
                                         :cycle-len 4
                                         :index 0
@@ -39,7 +39,7 @@
             :elapsed-ms 3000,
             :elapsed-dur 3
             :ratio 1,
-            :current-event {:dur-ms 2000, :dur 2 :cycle 0}}
+            :current-event {:dur-ms 2000, :dur 2 :index 1 :cycle 0}}
            (calculate-next-voice-state {:durs [1 2 1],
                                         :cycle-len 4
                                         :index 1,
@@ -58,7 +58,7 @@
             :elapsed-ms 5000,
             :elapsed-dur 5
             :ratio 1,
-            :current-event {:dur-ms 1000, :dur 1 :cycle 1}}
+            :current-event {:dur-ms 1000, :dur 1 :index 3 :cycle 1}}
            (calculate-next-voice-state {:durs [1 2 1],
                                         :cycle-len 4
                                         :index 3,
@@ -71,18 +71,18 @@
 
   (testing "`cycle` calculation"
     (is (= [nil ;; the first state doesn't have a `current-event` so value is `nil`
-            {:dur-ms 1000, :dur 1, :cycle 0}
-            {:dur-ms 2000, :dur 2, :cycle 0}
-            {:dur-ms 1000, :dur 1, :cycle 0}
-            {:dur-ms 1000, :dur 1, :cycle 1}
-            {:dur-ms 2000, :dur 2, :cycle 1}
-            {:dur-ms 1000, :dur 1, :cycle 1}
-            {:dur-ms 1000, :dur 1, :cycle 2}
-            {:dur-ms 2000, :dur 2, :cycle 2}
-            {:dur-ms 1000, :dur 1, :cycle 2}
-            {:dur-ms 1000, :dur 1, :cycle 3}
-            {:dur-ms 2000, :dur 2, :cycle 3}
-            {:dur-ms 1000, :dur 1, :cycle 3}]
+            {:dur-ms 1000, :dur 1, :index 0, :cycle 0}
+            {:dur-ms 2000, :dur 2, :index 1, :cycle 0}
+            {:dur-ms 1000, :dur 1, :index 2, :cycle 0}
+            {:dur-ms 1000, :dur 1, :index 3, :cycle 1}
+            {:dur-ms 2000, :dur 2, :index 4, :cycle 1}
+            {:dur-ms 1000, :dur 1, :index 5, :cycle 1}
+            {:dur-ms 1000, :dur 1, :index 6, :cycle 2}
+            {:dur-ms 2000, :dur 2, :index 7, :cycle 2}
+            {:dur-ms 1000, :dur 1, :index 8, :cycle 2}
+            {:dur-ms 1000, :dur 1, :index 9, :cycle 3}
+            {:dur-ms 2000, :dur 2, :index 10, :cycle 3}
+            {:dur-ms 1000, :dur 1, :index 11, :cycle 3}]
            (->> (range 12)
                 (reduce (fn [events _] (conj events (calculate-next-voice-state (last events))))
                         [{:durs [1 2 1]
@@ -97,18 +97,18 @@
                 (map :current-event))))
     (testing "`cycle-len` is different from the `durs` sum"
       (is (= [nil
-              {:dur-ms 1000, :dur 1, :cycle 0}
-              {:dur-ms 2000, :dur 2, :cycle 0}
-              {:dur-ms 1000, :dur 1, :cycle 1}
-              {:dur-ms 1000, :dur 1, :cycle 1}
-              {:dur-ms 2000, :dur 2, :cycle 1}
-              {:dur-ms 1000, :dur 1, :cycle 2}
-              {:dur-ms 1000, :dur 1, :cycle 2}
-              {:dur-ms 2000, :dur 2, :cycle 3}
-              {:dur-ms 1000, :dur 1, :cycle 3}
-              {:dur-ms 1000, :dur 1, :cycle 4}
-              {:dur-ms 2000, :dur 2, :cycle 4}
-              {:dur-ms 1000, :dur 1, :cycle 5}]
+              {:dur-ms 1000, :dur 1, :index 0, :cycle 0}
+              {:dur-ms 2000, :dur 2, :index 1, :cycle 0}
+              {:dur-ms 1000, :dur 1, :index 2, :cycle 1}
+              {:dur-ms 1000, :dur 1, :index 3, :cycle 1}
+              {:dur-ms 2000, :dur 2, :index 4, :cycle 1}
+              {:dur-ms 1000, :dur 1, :index 5, :cycle 2}
+              {:dur-ms 1000, :dur 1, :index 6, :cycle 2}
+              {:dur-ms 2000, :dur 2, :index 7, :cycle 3}
+              {:dur-ms 1000, :dur 1, :index 8, :cycle 3}
+              {:dur-ms 1000, :dur 1, :index 9, :cycle 4}
+              {:dur-ms 2000, :dur 2, :index 10, :cycle 4}
+              {:dur-ms 1000, :dur 1, :index 11, :cycle 5}]
              (->> (range 12)
                   (reduce (fn [events _] (conj events (calculate-next-voice-state (last events))))
                           [{:durs [1 2 1]
@@ -122,7 +122,7 @@
                             :ratio 1}])
                   (map :current-event))))))
   (testing "`current-event-dur` is related to tempo"
-    (is (= {:dur-ms 500N, :dur 1 :cycle 0}
+    (is (= {:dur-ms 500N, :dur 1 :index 0 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
@@ -133,7 +133,7 @@
                                          :elapsed-ms 0
                                          :elapsed-dur 0
                                          :ratio 1}))))
-    (is (= {:dur-ms 1000N, :dur 2 :cycle 0}
+    (is (= {:dur-ms 1000N, :dur 2 :index 1 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
@@ -144,7 +144,7 @@
                                          :elapsed-ms 0
                                          :elapsed-dur 1
                                          :ratio 1}))))
-    (is (= {:dur-ms 4000, :dur 2 :cycle 0}
+    (is (= {:dur-ms 4000, :dur 2 :index 1 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
@@ -156,7 +156,7 @@
                                          :elapsed-dur 3
                                          :ratio 1})))))
   (testing "Different ratio"
-    (is (= {:dur-ms 250N, :dur 1/2 :cycle 0}
+    (is (= {:dur-ms 250N, :dur 1/2 :index 0 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
@@ -167,7 +167,7 @@
                                          :elapsed-ms 0
                                          :elapsed-dur 0
                                          :ratio 1/2}))))
-    (is (= {:dur-ms 500N, :dur 1 :cycle 0}
+    (is (= {:dur-ms 500N, :dur 1 :index 1 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
@@ -179,7 +179,7 @@
                                          :elapsed-dur 1
                                          :ratio 1/2})))))
   (testing "`:durs` can be a function"
-    (is (= {:dur-ms 250N, :dur 1/2 :cycle 0}
+    (is (= {:dur-ms 250N, :dur 1/2 :index 0 :cycle 0}
            (:current-event
             (calculate-next-voice-state {:durs (fn [{:keys [index ratio] :as _voice}]
                                                  (* ratio (wrap-at index [1 2 1])))
