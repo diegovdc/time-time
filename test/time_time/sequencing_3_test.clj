@@ -13,6 +13,8 @@
   (testing "Increases the `index` by one, updates the `elapsed` value and updates (or sets) the `current-event-dur`"
     (is (= {:durs [1 2 1],
             :cycle-len 4
+            :cycle 0
+            :cycle-delta 1/4
             :index 1,
             :tempo 60,
             :loop? false,
@@ -23,6 +25,7 @@
             :current-event {:dur-ms 1000, :dur 1 :index 0 :cycle 0}}
            (calculate-next-voice-state {:durs [1 2 1]
                                         :cycle-len 4
+                                        :cycle 0
                                         :index 0
                                         :tempo 60
                                         :loop? false
@@ -32,6 +35,8 @@
                                         :ratio 1})))
     (is (= {:durs [1 2 1],
             :cycle-len 4
+            :cycle 0
+            :cycle-delta 3/4
             :index 2,
             :tempo 60,
             :loop? false,
@@ -42,6 +47,7 @@
             :current-event {:dur-ms 2000, :dur 2 :index 1 :cycle 0}}
            (calculate-next-voice-state {:durs [1 2 1],
                                         :cycle-len 4
+                                        :cycle 0
                                         :index 1,
                                         :tempo 60,
                                         :loop? false,
@@ -51,6 +57,8 @@
                                         :ratio 1})))
     (is (= {:durs [1 2 1],
             :cycle-len 4
+            :cycle 1
+            :cycle-delta 1/4
             :index 4,
             :tempo 60,
             :loop? false,
@@ -61,6 +69,7 @@
             :current-event {:dur-ms 1000, :dur 1 :index 3 :cycle 1}}
            (calculate-next-voice-state {:durs [1 2 1],
                                         :cycle-len 4
+                                        :cycle 1
                                         :index 3,
                                         :tempo 60,
                                         :loop? false,
@@ -87,6 +96,7 @@
                 (reduce (fn [events _] (conj events (calculate-next-voice-state (last events))))
                         [{:durs [1 2 1]
                           :cycle-len 4
+                          :cycle 0
                           :index 0
                           :tempo 60
                           :loop? false
@@ -113,6 +123,7 @@
                   (reduce (fn [events _] (conj events (calculate-next-voice-state (last events))))
                           [{:durs [1 2 1]
                             :cycle-len 3
+                            :cycle 0
                             :index 0
                             :tempo 60
                             :loop? false
@@ -126,6 +137,7 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
+                                         :cycle 0
                                          :index 0
                                          :tempo 120
                                          :loop? false
@@ -137,6 +149,7 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
+                                         :cycle 0
                                          :index 1
                                          :tempo 120
                                          :loop? false
@@ -148,6 +161,7 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
+                                         :cycle 0
                                          :index 1
                                          :tempo 30
                                          :loop? false
@@ -160,6 +174,7 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
+                                         :cycle 0
                                          :index 0
                                          :tempo 120
                                          :loop? false
@@ -171,6 +186,7 @@
            (:current-event
             (calculate-next-voice-state {:durs [1 2 1]
                                          :cycle-len 4
+                                         :cycle 0
                                          :index 1
                                          :tempo 120
                                          :loop? false
@@ -184,6 +200,7 @@
             (calculate-next-voice-state {:durs (fn [{:keys [index ratio] :as _voice}]
                                                  (* ratio (wrap-at index [1 2 1])))
                                          :cycle-len 2
+                                         :cycle 0
                                          :index 0
                                          :tempo 120
                                          :loop? false

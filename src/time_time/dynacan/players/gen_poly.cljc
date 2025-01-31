@@ -75,8 +75,9 @@
   `at-index` (alias `at-i`,function that get a value in a collection based on index, it wraps with `mod`)
               can take an `offset` as the first argument and the collection as the second, and `offset` can be a function or a number"
   [& forms]
-  `(fn [~'{{:keys [index dur dur-ms dur-s] :as data} :data}]
+  `(fn [~'{{:keys [index cycle cycle-delta dur dur-ms dur-s] :as data} :data}]
      (let [~'i ~'index
+           ~'delta ~'cycle-delta
            ~'at-index (partial at-index* ~'index)
            ~'at-i ~'at-index]
        ~@forms)))
@@ -125,9 +126,10 @@
                    :as config}]
   (let [existing-voice? (and (@refrains id) (-> @refrains id deref :playing?))
         refrains* (cond
-                    existing-voice? (update-refrain id #(assoc %
-                                                               :update config
-                                                               :refrain/config config))
+                    existing-voice? (let [config* (merge config (s/get-cycle-data durs config))]
+                                      (update-refrain id #(assoc %
+                                                                 :update config*
+                                                                 :refrain/config config*)))
 
                     (and (@refrains ref) (-> @refrains ref deref :playing?))
                     (let [voice (add-to! (-> @refrains ref deref) distance on-event config)]
@@ -150,10 +152,9 @@
   ;; A function
   (ref-rain
    :id :hola
-   :durs (fn [{:keys [index]}]
-           1)
+   :durs [1 2]
    :on-event (on-event
-              (println "holas" (at-index sec))
+              (println "holas" cycle)
                 ;; throw at some point of the execution
 
               #_(throw (ex-info "ups" {}))))
