@@ -15,20 +15,27 @@
   "Gets a config and returns a `voice-atom` that will start playing,
   if `playing?` is true (default)"
   [durs on-event &
-   {:keys [ratio tempo loop? start-index start-time elapsed playing?
-           before-update on-schedule extra-data on-startup-error]
+   {:keys [ratio tempo loop? start-index start-time elapsed elapsed-dur playing?
+           before-update on-schedule extra-data on-startup-error durs-len]
     :or {ratio 1
          tempo 60
          loop? false
          start-index 0
          start-time (now)
          elapsed 0
+         elapsed-dur 0 ;; TODO investigate if this is compatible with `elapsed`, if so, substitute
          playing? true
          before-update identity ;; receives the voice data before it is used to `reset!` the `voice-atom`
          on-schedule (fn [voice event-schedule] event-schedule)
          extra-data {}}}]
   (let [voice (atom (merge extra-data
                            {:durs durs
+                            :elapsed-dur elapsed-dur
+                            :cycle-len (cond
+                                         (and (fn? durs) (not durs-len)) (do (timbre/warn "`durs` is a function but no `durs-len` has been provided, defaulting to 1")
+                                                                             1)
+                                         durs-len durs-len
+                                         :else (apply + durs))
                             :on-event on-event
                             :ratio ratio
                             :tempo tempo
@@ -72,11 +79,12 @@
     {:dur dur :event-dur event-dur}))
 
 (defn calculate-next-voice-state
-  [{:keys [index elapsed-ms] :as voice}]
+  [{:keys [index elapsed-ms cycle-len elapsed-dur] :as voice}]
   (let [{:keys [dur event-dur]} (get-current-dur-data voice)
         updated-state {:index (inc index)
+                       :elapsed-dur (+ elapsed-dur dur)
                        :elapsed-ms (+ elapsed-ms event-dur)
-                       :current-event {:dur-ms event-dur :dur dur}}]
+                       :current-event {:dur-ms event-dur :dur dur :cycle (quot elapsed-dur cycle-len)}}]
     (merge voice updated-state)))
 
 (defn play-event?
