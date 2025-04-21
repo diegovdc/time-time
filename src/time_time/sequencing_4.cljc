@@ -9,9 +9,9 @@
 (defn init-voice-data
   [{:as config
     :keys [durs on-event ratio tempo loop? start-index start-time elapsed elapsed-dur playing?
-           before-update on-schedule extra-data on-startup-error _durs-len]
+           before-update on-schedule extra-data on-startup-error _cycle-len]
     :or {durs [1]
-         on-event println
+         on-event (fn [{:keys [_event _voice]}])
          ratio 1
          tempo 60
          loop? false
@@ -21,9 +21,9 @@
          elapsed-dur 0 ;; TODO investigate if this is compatible with `elapsed`, if so, substitute
          playing? true
          before-update identity ;; receives the voice data before it is used to `reset!` the `voice-atom`
-         on-schedule (fn [voice event-schedule] event-schedule)
+         on-schedule (fn [_voice event-schedule] event-schedule)
          extra-data {}}}]
-  (let [cycle-data (get-cycle-data config)
+  (let [cycle-data (get-cycle-data (assoc config :ratio ratio))
         data (merge
               extra-data
               {:durs durs
@@ -34,6 +34,7 @@
                :loop? loop?
                :index start-index
                :cycle-0-index start-index
+               :new-cycle? true
                :started-at start-time
                ;; maybe FIXME, perhaps `play!` should receive
                ;; `elapsed-ms` instead of `elapsed`
@@ -52,6 +53,7 @@
            cycle-len
            cycle-0-index
            cycle
+           new-cycle?
            elapsed-dur
            cycle-delta
            started-at
@@ -61,11 +63,13 @@
   (let [{:keys [dur event-dur]} (get-current-dur-data voice)
         elapsed-dur*  (+ elapsed-dur dur)
         index* (inc index)
+        cycle* (quot elapsed-dur* cycle-len)
         cycle-delta* (calculate-cycle-delta elapsed-dur* cycle-len)
         updated-state {:index index*
-                       :cycle (quot elapsed-dur* cycle-len)
+                       :cycle cycle*
                        :cycle-delta cycle-delta*
                        :cycle-0-index (if (zero? cycle-delta*) index* cycle-0-index)
+                       :new-cycle? (not= cycle cycle*)
                        :elapsed-dur elapsed-dur*
                        :elapsed-ms (+ elapsed-ms event-dur)
                        :playing? (and playing? (play-event? index durs loop?))
@@ -75,6 +79,7 @@
                                        :dur dur
                                        :durs durs
                                        :cycle cycle
+                                       :new-cycle? new-cycle?
                                        :cycle-len cycle-len
                                        :cycle-delta cycle-delta
                                        :cycle-0-index cycle-0-index
@@ -86,8 +91,9 @@
 
 (comment
   (init-voice-data {:durs [1 2 3]
-                    :on-event println
-                    :ratio 1})
+                    ;; :on-event println
+                    ;; :ratio 1
+                    })
   (def v1 (init-voice-data {:durs [1 2 3]
                             :on-event println
                             :ratio 1}))
@@ -109,7 +115,10 @@
     (-> voice-data
         (assoc :cycle 0
                :cycle-delta 0
-               :elapsed-dur 0)
+               :elapsed-dur 0
+               :cycle-len (get-cycle-len (assoc voice-data
+                                                :recalculate-cycle-len?
+                                                (not (:keep-cycle-len? voice-data)))))
         (dissoc :reset-cycle?))))
 
 (defn update-time-data [voice-data]
@@ -189,7 +198,8 @@
                         (try (when (play-event? index durs loop?)
                                (let [on-event (get-on-event-fn voice-atom)]
                                  (on-event {:event current-event
-                                            :voice voice-atom})))
+                                            :voice v*
+                                            :voice-atom voice-atom})))
                              (after-event voice-atom)
                              #?(:clj (catch Exception e (on-error voice-atom e))
                                 :cljs (catch js/Error e (on-error voice-atom e)))))))]
@@ -200,11 +210,11 @@
      cycle-len))
 
 (defn get-cycle-len
-  [{:keys [durs ratio durs-len] :as _config}]
+  [{:keys [durs ratio cycle-len recalculate-cycle-len?] :as _config}]
   (cond
-    (and (fn? durs) (not durs-len)) (do (timbre/warn "`durs` is a function but no `durs-len` has been provided, defaulting to 1*ratio")
-                                        (* ratio 1))
-    durs-len durs-len
+    (and (fn? durs) (not cycle-len)) (do (timbre/warn "`durs` is a function but no `cycle-len` has been provided, defaulting to 1*ratio")
+                                         (* ratio 1))
+    (and cycle-len (not recalculate-cycle-len?)) cycle-len
     :else (* ratio (apply + durs))))
 
 (defn get-cycle-data

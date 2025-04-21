@@ -47,7 +47,8 @@
                       (swap! refrains assoc id voice))
 
                     :else
-                    (let [voice (s4/play! {:durs durs
+                    (let [voice (s4/play! {:extra-data {:id id :ref ref}
+                                           :durs durs
                                            :on-event on-event
                                            :loop? loop?
                                            :tempo (config :tempo 60)
@@ -67,8 +68,10 @@
                        (when (cyi? 3) (println "First" dur))))
   (ref-rain :id :adios
             :ref :hola
-            :durs [2]
-            :on-event (on-event (println "adios" (now))))
+            ;; :reset-cycle? true
+            :durs [2 3]
+            :on-event (on-event
+                       (println cycle cycle-delta-index cycle-delta)))
 
   (stop))
 
@@ -107,14 +110,14 @@
   [& forms]
   `(fn [~'{{:keys [index
                    dur
-                   durs
                    dur-ms
                    dur-s
                    cycle
-                   cycle-len
                    cycle-delta
                    cycle-0-index
-                   cycle-delta-index] :as event} :event}]
+                   cycle-delta-index
+                   new-cycle?] :as event} :event
+           {:keys [id cycle-len durs] :as voice} :voice}]
      (let [~'data ~'event
            ~'i ~'index
            ~'cy ~'cycle
@@ -145,7 +148,7 @@
        (map first)))
 
 (defn add-to! [ref-voice events-from-cp on-event
-               {:keys [durs ratio loop? cp]
+               {:keys [id durs ratio loop? cp]
                 :or {durs (ref-voice :durs)
                      ratio (ref-voice :ratio)
                      loop? (ref-voice :loop?)}
@@ -169,7 +172,9 @@
                :start-time start-time
                :loop? loop?
                :before-update before-update
-               :extra-data {:cp cp
+               :extra-data {:id id
+                            :ref (:id ref-voice)
+                            :cp cp
                             :cp-at cp-elapsed
                             :interval-from-cp interval-from-cp
                             :events-from-cp events-from-cp}})))
