@@ -10,25 +10,43 @@
    #?(:clj [taoensso.timbre :as timbre]
       :cljs [taoensso.timbre :as timbre :include-macros true])))
 
-(declare schedule! get-current-dur-data)
+(declare schedule! get-current-dur-data cycle-delta)
+
+(defn get-cycle-data
+  [durs
+   {:keys [elapsed-dur durs-len] :as _config
+    :or {elapsed-dur 0}}]
+  (let [cycle-len (cond
+                    (and (fn? durs) (not durs-len)) (do (timbre/warn "`durs` is a function but no `durs-len` has been provided, defaulting to 1")
+                                                        1)
+                    durs-len durs-len
+                    :else (apply + durs))]
+    {:cycle-len cycle-len
+     :cycle (quot elapsed-dur cycle-len)
+     :cycle-delta (cycle-delta elapsed-dur cycle-len)}))
+
 (defn play!
   "Gets a config and returns a `voice-atom` that will start playing,
   if `playing?` is true (default)"
   [durs on-event &
-   {:keys [ratio tempo loop? start-index start-time elapsed playing?
-           before-update on-schedule extra-data on-startup-error]
+   {:as config
+    :keys [ratio tempo loop? start-index start-time elapsed elapsed-dur playing?
+           before-update on-schedule extra-data on-startup-error durs-len]
     :or {ratio 1
          tempo 60
          loop? false
          start-index 0
          start-time (now)
          elapsed 0
+         elapsed-dur 0 ;; TODO investigate if this is compatible with `elapsed`, if so, substitute
          playing? true
          before-update identity ;; receives the voice data before it is used to `reset!` the `voice-atom`
          on-schedule (fn [voice event-schedule] event-schedule)
          extra-data {}}}]
-  (let [voice (atom (merge extra-data
+  (let [cycle-data (get-cycle-data durs config)
+        voice (atom (merge extra-data
                            {:durs durs
+                            :elapsed-dur elapsed-dur
                             :on-event on-event
                             :ratio ratio
                             :tempo tempo
@@ -45,7 +63,8 @@
                             :playing? playing?
                             :before-update before-update
                             :on-schedule on-schedule
-                            :on-startup-error on-startup-error}))]
+                            :on-startup-error on-startup-error}
+                           cycle-data))]
     (schedule! voice)
     voice))
 
@@ -71,12 +90,23 @@
         event-dur (dur->ms dur tempo)]
     {:dur dur :event-dur event-dur}))
 
+(defn cycle-delta [elapsed-dur cycle-len]
+  (/ (mod elapsed-dur cycle-len)
+     cycle-len))
+
 (defn calculate-next-voice-state
-  [{:keys [index elapsed-ms] :as voice}]
+  [{:keys [index elapsed-ms cycle-len cycle elapsed-dur] :as voice}]
   (let [{:keys [dur event-dur]} (get-current-dur-data voice)
+        elapsed-dur* (+ elapsed-dur dur)
         updated-state {:index (inc index)
+                       :cycle (quot elapsed-dur* cycle-len)
+                       :cycle-delta (cycle-delta elapsed-dur* cycle-len)
+                       :elapsed-dur elapsed-dur*
                        :elapsed-ms (+ elapsed-ms event-dur)
-                       :current-event {:dur-ms event-dur :dur dur}}]
+                       :current-event {:dur-ms event-dur
+                                       :dur dur
+                                       :index index
+                                       :cycle cycle}}]
     (merge voice updated-state)))
 
 (defn play-event?
@@ -101,6 +131,10 @@
         ;; TODO calculate-next-voice-state should only return the fields below
        (select-keys voice-update
                     [:index
+                     :cycle
+                     :cycle-delta
+                     :cycle-len
+                     :elapsed-dur
                      :elapsed-ms
                      :current-event
                      :prev-on-event
