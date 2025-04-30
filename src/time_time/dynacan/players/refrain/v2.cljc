@@ -95,9 +95,16 @@
 
   With an `offset` argument it will attempt to calculate if the current index is an `offset` away from the start of the cycle.
   Using an `offset` is prone to returning false positives if the `cycle-len` has not been derived from the sum of `durs`."
-  ([] `(~'cycle-0-index? ~'index ~'cycle-0-index))
+  ([] `(~cycle-0-index? ~'index ~'cycle-0-index))
   ;; NOTE in most cases this will work, when the `cycle-len` is derived from the `durs` sum; however in cases where this is not, the return value will not be correct.
-  ([offset] `(~'cycle-0-index? ~'index ~'cycle-0-index ~offset ~'durs ~'cycle-len)))
+  ([offset] `(~cycle-0-index? ~'index ~'cycle-0-index ~offset ~'durs ~'cycle-len)))
+
+(comment
+  ((on-event (cyi?)) {:event {:index 0 :cycle-0-index 0}})
+  ((on-event (cyi?)) {:event {:index 1 :cycle-0-index 0}})
+  ((on-event (cyi?)) {:event {:index 1 :cycle-0-index 1}})
+  ((on-event (cyi?)) {:event {:index 1 :cycle-0-index 0}
+                      :voice {:durs [1 1 1] :cycle-len 3}}))
 
 (defmacro on-event
   "Provides
@@ -128,7 +135,6 @@
            ~'at-index (partial at-index* ~'index)
            ~'at-i ~'at-index]
        ~@forms)))
-
 (comment
   (macroexpand-1 '(on-event (at-index [1 2 3])))
   ((on-event (at-index  #(- 1 %) [1 2 3])) {:data {:index 1}})
