@@ -25,3 +25,4 @@ umd/
 .clj-kondo/
 .lsp/
 .cider-repl-history
+**/.DS_Store
