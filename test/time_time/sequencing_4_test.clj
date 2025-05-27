@@ -4,8 +4,8 @@
    [clojure.test :refer [deftest is testing]]
    [time-time.sequencing-4
     :refer
-    [calculate-next-voice-state init-voice-data play-event? schedule!
-     update-voice-state!]]
+    [after-event calculate-next-voice-state init-voice-data play-event?
+     schedule! update-voice-state!]]
    [time-time.standard :refer [now wrap-at]]
    [time-time.utils.async :refer [async-events-tester]]
    [time-time.utils.core :refer [close-to get-time-interval]]))
@@ -347,6 +347,53 @@
 
 (defn get-dur [event]
   ((event :durs) (event :index)))
+
+(deftest prepare-on-event-test
+  (let [event-atom (atom nil)
+        on-event (fn [event-data]
+                   (println event-data)
+                   (reset! event-atom event-data))
+        voice-atom (atom {:current-event {:index 0}
+                          :durs [1 1]
+                          :loop? true
+                          :playing? true
+                          :on-event on-event})]
+    (with-redefs [after-event (fn [_])]
+      ((#'time-time.sequencing-4/prepare-on-event voice-atom))
+      (is (= {:event {:index 0},
+              :voice {:current-event {:index 0},
+                      :durs [1 1],
+                      :loop? true,
+                      :playing? true,
+                      :on-event on-event},
+              :voice-atom voice-atom}
+             @event-atom))))
+  (testing "When an error is throw in `on-event`, and there is a `prev-on-event` function, that function will get called."
+    (let [event-atom (atom nil)
+          prev-on-event (fn [event-data]
+                          (reset! event-atom
+                                  (assoc event-data :prev-on-event-called? true)))
+          on-event (fn [event-data]
+                     (nth [] 5) ;; throw an error
+                     (reset! event-atom event-data))
+          voice-atom (atom {:current-event {:index 0}
+                            :durs [1 1]
+                            :loop? true
+                            :playing? true
+                            :prev-on-event prev-on-event
+                            :on-event on-event})]
+      (with-redefs [after-event (fn [_])]
+        ((#'time-time.sequencing-4/prepare-on-event voice-atom))
+        (is (= {:prev-on-event-called? true
+                :event {:index 0},
+                :voice {:current-event {:index 0},
+                        :durs [1 1],
+                        :loop? true,
+                        :playing? true,
+                        :prev-on-event prev-on-event
+                        :on-event on-event},
+                :voice-atom voice-atom}
+               @event-atom))))))
 
 (deftest schedule!-test
   (let [base-voice {:durs [1 2 1 2 1 1]

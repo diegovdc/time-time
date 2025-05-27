@@ -164,16 +164,17 @@
   (let [{:keys [playing?] :as _voice-data} (update-voice-state! voice-atom)]
     (when playing? (schedule! voice-atom))))
 
-(defn on-error [voice-atom error]
+(defn on-error [voice-atom event-data error]
   (timbre/error error)
   (let [v* (deref voice-atom)
         prev-on-event (:prev-on-event v*)
         on-startup-error (:on-startup-error v*)]
     (cond prev-on-event (try
-                          (prev-on-event {:data v*
-                                          :voice voice-atom
-                                          :dur (-> v* :current-event :dur)})
-                          (swap! voice-atom :on-event prev-on-event)
+                          (prev-on-event event-data)
+                          (swap! voice-atom
+                                 #(-> %
+                                      (assoc :on-event prev-on-event)
+                                      (dissoc :update)))
                           #?(:clj (catch Exception _ (timbre/error "Can not recover from error"))
                              :cljs (catch js/Error _ (timbre/error "Can not recover from error")))
                           (finally (after-event voice-atom)))
@@ -187,23 +188,30 @@
            (:on-event (:update @voice-atom)))
       (:on-event @voice-atom)))
 
+(comment
+  (get-on-event-fn (atom {:update {:on-event "123"}})))
+
+(defn- prepare-on-event
+  [voice-atom]
+  (fn run-on-event []
+    (let [{:keys [loop? durs current-event] :as v*} (deref voice-atom)
+          ;; the current event:
+          {:keys [index]} current-event
+          event-data {:event current-event
+                      :voice v*
+                      :voice-atom voice-atom}]
+      (when (:playing? v*)
+        (timbre/debug "About to play event" index :durs durs :loop loop?)
+        (try (when (play-event? index durs loop?)
+               (let [on-event (get-on-event-fn voice-atom)]
+                 (on-event event-data)))
+             (after-event voice-atom)
+             #?(:clj (catch Exception e (on-error voice-atom event-data e))
+                :cljs (catch js/Error e (on-error voice-atom e))))))))
+
 (defn schedule! [voice-atom]
-  (let [schedule  (-> voice-atom deref :current-event :start-at)
-        on-event* (fn []
-                    (let [{:keys [loop? durs current-event] :as v*} (deref voice-atom)
-                          ;; the current event:
-                          {:keys [index]} current-event]
-                      (when (:playing? v*)
-                        (timbre/debug "About to play event" index :durs durs :loop loop?)
-                        (try (when (play-event? index durs loop?)
-                               (let [on-event (get-on-event-fn voice-atom)]
-                                 (on-event {:event current-event
-                                            :voice v*
-                                            :voice-atom voice-atom})))
-                             (after-event voice-atom)
-                             #?(:clj (catch Exception e (on-error voice-atom e))
-                                :cljs (catch js/Error e (on-error voice-atom e)))))))]
-    (apply-at schedule on-event*)))
+  (let [schedule  (-> voice-atom deref :current-event :start-at)]
+    (apply-at schedule (prepare-on-event voice-atom))))
 
 (defn calculate-cycle-delta [elapsed-dur cycle-len]
   (/ (mod elapsed-dur cycle-len)
@@ -260,9 +268,19 @@
     (schedule! voice)
     voice))
 (comment
-  (def v1 (play! {:durs [1 2 3]
+  (def v1 (play! {:durs [1]
+                  :loop? true
                   :on-event println
-                  :ratio 1})))
+                  :ratio 1}))
+  (stop! v1)
+  (-> @v1)
+  ;; add a prev-on-event
+  (swap! v1 assoc :prev-on-event (fn [_] (println "hola")))
+  ;; provoke an error
+  (swap! v1
+         assoc :update {:on-event (fn [_]
+                                    (println 456)
+                                    (nth [] 5))}))
 
 (defn stop! [voice-atom]
   (swap! voice-atom assoc :playing? false))
