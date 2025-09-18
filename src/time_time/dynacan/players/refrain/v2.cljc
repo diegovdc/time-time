@@ -165,7 +165,10 @@
         {:keys [index elapsed cp cp-elapsed interval-from-cp events-from-cp]}
         (find-relative-voice-first-event events-from-cp ;; TODO should probably return the start time of the voice
                                          ref-voice
-                                         {:durs durs :cp cp :ratio ratio :loop? loop?})]
+                                         {:durs (if (fn? durs) [1] durs) ;; TODO: this is a hardcoded quick solution, but it may be better to solve it more elegantly. Though the cases may vary, i.e. if a `durs` fn is `(rand)`, it may not make any sense to solve it. Anyways this solution allows a `ref-rain` that has a `:ref` to start without a problem (it crashed before).
+                                          :cp cp
+                                          :ratio ratio
+                                          :loop? loop?})]
     #_(log/debug "adding voice... cp-at ref-voice index"
                  (ref-voice :index)
                  (+ events-from-cp (ref-voice :index)))
