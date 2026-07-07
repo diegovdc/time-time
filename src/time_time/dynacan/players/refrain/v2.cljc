@@ -29,8 +29,10 @@
          :else (println "Could not find refrain with id: " id))))
 
 (defn ref-rain
-  [& {:keys [id durs on-event loop? ref distance]
-      :or {loop? true
+  [& {:keys [id durs on-event loop? ref distance tempo ratio cycle-len]
+      :or {tempo 60
+           ratio 1
+           loop? true
            distance 1}
       :as config}]
   (let [existing-voice-config (@refrains id)
@@ -51,8 +53,9 @@
                                            :durs durs
                                            :on-event on-event
                                            :loop? loop?
-                                           :tempo (config :tempo 60)
-                                           :ratio (config :ratio 1)
+                                           :tempo tempo
+                                           :ratio ratio
+                                           :cycle-len cycle-len
                                            :on-startup-error (fn [] (stop id))})]
                       (swap! voice assoc :refrain/config config)
                       (swap! refrains assoc id voice)))]
@@ -63,6 +66,12 @@
   (@refrains :hola)
   (ref-rain :id :hola
             :durs [1 2 3]
+            :on-event (on-event
+                       (println "hola")
+                       (when (cyi? 3) (println "First" dur))))
+  (ref-rain :id :hola
+            :durs (fn [_] 1)
+            :cycle-len 1
             :on-event (on-event
                        (println "hola")
                        (when (cyi? 3) (println "First" dur))))
